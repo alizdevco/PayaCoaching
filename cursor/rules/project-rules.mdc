@@ -43,22 +43,23 @@ Do not create a custom Node.js, Express, NestJS, Flask, Django, or other backend
 
 ## File Storage
 
-* Liara Object Storage
+* Arvan Cloud Object Storage (Phase 5)
 * S3-compatible API
 * Private student files must be stored in a private bucket
 * Public exam-analysis files may use a separate public bucket when appropriate
 
 ## SMS Provider
 
-* Kavenegar
-* Kavenegar must only be called from a Supabase Edge Function
-* Never call Kavenegar directly from the React frontend
+* sms.ir (Verify API)
+* sms.ir must only be called from a Supabase Edge Function
+* Never call sms.ir directly from the React frontend
+* OTP delivery goes through the Supabase Auth Send SMS hook, not a custom flow
 
 ## Deployment
 
 * The React/Vite frontend is deployed as a Liara Static App
 * Supabase remains the backend
-* Liara Object Storage stores files
+* Arvan Cloud Object Storage stores files
 * There is no custom application server deployed on Liara in the current architecture
 
 The architecture is:
@@ -75,13 +76,13 @@ React Static App on Liara
     |      - RLS
     |      - Edge Functions
     |
-    +--> Temporary signed Liara file URLs
+    +--> Temporary signed Arvan Cloud file URLs
            - Videos
            - PDFs
            - Images
 ```
 
-The browser may download or stream a private file directly from Liara only after receiving a temporary signed URL from an authorized Edge Function.
+The browser may download or stream a private file directly from Arvan Cloud only after receiving a temporary signed URL from an authorized Edge Function.
 
 ---
 
@@ -149,7 +150,7 @@ Phone number
 Request OTP
     |
     v
-Kavenegar sends SMS
+Supabase Send SMS hook -> send-sms Edge Function -> sms.ir
     |
     v
 Verify OTP
@@ -252,7 +253,7 @@ Private student files include:
 * PDF
 * Image
 
-The actual files must be stored in Liara Object Storage.
+The actual files must be stored in Arvan Cloud Object Storage.
 
 Supabase Database stores only file metadata.
 
@@ -272,7 +273,7 @@ created_at
 deleted_at
 ```
 
-Example Liara object path:
+Example Arvan Cloud object path:
 
 ```text
 students/{student_id}/videos/{uuid}.mp4
@@ -288,7 +289,7 @@ Never store large binary files inside Supabase Database.
 
 # Private File Access
 
-Private Liara files must never be exposed using permanent public URLs.
+Private Arvan Cloud files must never be exposed using permanent public URLs.
 
 The access flow must be:
 
@@ -311,18 +312,18 @@ Edge Function verifies the authenticated user
 Edge Function verifies access to that database record
     |
     v
-Edge Function generates a temporary Liara presigned URL
+Edge Function generates a temporary Arvan Cloud presigned URL
     |
     v
 React gives the temporary URL to the browser player/viewer
     |
     v
-Browser streams or downloads the file directly from Liara
+Browser streams or downloads the file directly from Arvan Cloud
 ```
 
 React does not receive the complete video file before playback.
 
-The browser streams the video directly from Liara using HTTP range requests when supported.
+The browser streams the video directly from Arvan Cloud using HTTP range requests when supported.
 
 The Edge Function must not trust a raw `file_path` sent by the client.
 
@@ -334,9 +335,9 @@ Signed URLs must have a short expiration time.
 
 # File Upload Flow
 
-Private files must not be uploaded using Liara secret credentials inside React.
+Private files must not be uploaded using Arvan Cloud secret credentials inside React.
 
-Liara credentials must only exist in secure server-side environment variables.
+Arvan Cloud credentials must only exist in secure server-side environment variables.
 
 The preferred upload flow is:
 
@@ -356,7 +357,7 @@ Edge Function validates file type and file size
 Edge Function generates a temporary presigned upload URL
     |
     v
-Browser uploads the file directly to Liara
+Browser uploads the file directly to Arvan Cloud
     |
     v
 React confirms upload completion
@@ -367,7 +368,7 @@ Authorized server-side logic creates the metadata record in Supabase
 
 Do not transfer large video files through the Edge Function body unless there is a strong technical reason.
 
-For large files, prefer direct browser-to-Liara upload using a short-lived presigned upload URL.
+For large files, prefer direct browser-to-Arvan-Cloud upload using a short-lived presigned upload URL.
 
 For large or unreliable uploads, use multipart upload when needed and supported.
 
@@ -392,8 +393,8 @@ Edge Functions are server-side functions running on Supabase infrastructure.
 Use Edge Functions only for operations that require:
 
 * Secret API keys
-* Liara access credentials
-* Kavenegar credentials
+* Arvan Cloud access credentials
+* sms.ir credentials
 * Privileged authorization checks
 * Signed URL generation
 * Secure OTP handling
@@ -402,8 +403,7 @@ Use Edge Functions only for operations that require:
 Expected Edge Functions may include:
 
 ```text
-send-otp
-verify-otp
+send-sms
 create-upload-url
 create-download-url
 delete-storage-object
@@ -422,19 +422,28 @@ Each sensitive Edge Function must:
 7. Return a structured JSON response
 8. Avoid exposing internal errors or secrets
 
+Auth hook functions such as `send-sms` are the exception to steps 3–5: they are
+called by Supabase Auth, not by a user, so they run with `verify_jwt = false`
+and authenticate the caller by verifying the standard-webhook signature instead.
+
 Never use the Supabase service-role key in the React frontend.
 
 The service-role key may only be used in trusted server-side code such as Edge Functions.
 
 ---
 
-# Kavenegar and OTP Rules
+# sms.ir and OTP Rules
 
-The React frontend sends the phone number to the appropriate Edge Function.
+The React frontend calls `supabase.auth.signInWithOtp()` and
+`supabase.auth.verifyOtp()`. Supabase Auth owns generating, storing, expiring,
+and validating the code.
 
-The Edge Function communicates with Kavenegar.
+Auth delivers the generated code to the `send-sms` Edge Function through the
+Send SMS hook, signed with `SEND_SMS_HOOK_SECRET`. That function is the only
+place that talks to the sms.ir Verify API, and it must reject any request whose
+webhook signature does not verify.
 
-Kavenegar credentials must never be exposed to the browser.
+sms.ir credentials must never be exposed to the browser.
 
 OTP codes must:
 
@@ -745,8 +754,8 @@ Never hardcode:
 
 * Supabase URL
 * Supabase keys
-* Liara credentials
-* Kavenegar credentials
+* Arvan Cloud credentials
+* sms.ir credentials
 * Secret API keys
 
 Frontend environment variables may include only public-safe values:
@@ -760,9 +769,10 @@ Never place these in frontend environment variables:
 
 ```text
 SUPABASE_SERVICE_ROLE_KEY
-LIARA_ACCESS_KEY
-LIARA_SECRET_KEY
-KAVENEGAR_API_KEY
+ARVAN_ACCESS_KEY
+ARVAN_SECRET_KEY
+SMS_IR_API_KEY
+SEND_SMS_HOOK_SECRET
 ```
 
 Private secrets must only be stored in Supabase Edge Function secrets or another approved server-side secret manager.
@@ -834,7 +844,7 @@ Before deleting content:
 * Require confirmation
 * Verify admin role
 * Delete or archive the database record safely
-* Delete the Liara object when appropriate
+* Delete the Arvan Cloud object when appropriate
 * Handle partial failures
 
 Do not leave orphaned database records or orphaned storage files.
@@ -928,7 +938,7 @@ Implement the project in this order:
 14. Create route guards
 15. Create admin student list
 16. Create student details page
-17. Configure Liara Object Storage
+17. Configure Arvan Cloud Object Storage
 18. Implement secure presigned upload flow
 19. Save file metadata in Supabase
 20. Implement student private-content queries
@@ -983,8 +993,8 @@ Cursor must never:
 * Use TypeScript
 * Disable RLS
 * Expose service-role keys
-* Expose Liara credentials
-* Expose Kavenegar credentials
+* Expose Arvan Cloud credentials
+* Expose sms.ir credentials
 * Put secrets in React
 * Store OTP codes or passwords in logs
 * Store video files in Supabase Database

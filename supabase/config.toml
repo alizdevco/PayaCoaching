@@ -265,8 +265,9 @@ template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 
 # Use pre-defined map of phone number to OTP for testing.
-# Keys are digits only (no +). Any phone used in dev must be listed here
-# until Kavenegar Edge Functions (Phase 4) are deployed.
+# Keys are digits only (no +). Local dev keeps using these fixed codes so that
+# `supabase start` never needs sms.ir credentials. Real SMS is sent on the
+# remote project through the send_sms hook below.
 [auth.sms.test_otp]
 9121234567 = "123456"
 989121234567 = "123456"
@@ -287,6 +288,15 @@ max_frequency = "5s"
 # [auth.hook.custom_access_token]
 # enabled = true
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
+
+# Sends the Auth-generated OTP through the send-sms Edge Function, which relays
+# it to sms.ir. Enabled on the remote project (Dashboard → Auth → Hooks).
+# Uncomment to exercise the real provider locally; requires SEND_SMS_HOOK_SECRET
+# and the SMS_IR_* secrets in your shell, and a phone that is not in test_otp.
+# [auth.hook.send_sms]
+# enabled = true
+# uri = "http://host.docker.internal:54321/functions/v1/send-sms"
+# secrets = "env(SEND_SMS_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
@@ -387,6 +397,11 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+# Auth calls this function as a signed standard webhook, not with a user JWT.
+[functions.send-sms]
+enabled = true
+verify_jwt = false
 
 [analytics]
 enabled = true

@@ -1,12 +1,13 @@
 // Mutations for the 3-step student registration flow.
-//   Step 1: request an OTP for a phone number (mocked for now).
-//   Step 2: verify the OTP (mocked for now).
+//   Step 1: request an OTP for a phone number.
+//   Step 2: verify the OTP, which also creates the session.
 //   Step 3: create the account with phone + password and save the name.
 // The profiles row is created automatically by the handle_new_user trigger.
 
 import { useMutation } from "@tanstack/react-query";
 
 import { sendOtp, verifyOtp, registerStudentWithProfile } from "./authApi.js";
+
 export function useSendOtp(options = {}) {
   return useMutation({
     mutationFn: (phone) => sendOtp(phone),

@@ -169,12 +169,12 @@ export function onAuthStateChange(callback) {
 }
 
 // ---------------------------------------------------------------------------
-// Phone OTP via Supabase Auth. Dev/test phones use [auth.sms.test_otp] in
-// supabase/config.toml. Production SMS goes through Edge Functions (Phase 4).
+// Phone OTP via Supabase Auth. Local dev phones use [auth.sms.test_otp] in
+// supabase/config.toml; on the remote project the Send SMS hook forwards the
+// code to the send-sms Edge Function, which relays it to sms.ir.
 // ---------------------------------------------------------------------------
 
-// Request a phone OTP via Supabase Auth. With [auth.sms.test_otp] configured,
-// mapped numbers receive a fixed code without a real SMS provider.
+// Request a phone OTP via Supabase Auth.
 export async function sendOtp(phone) {
   const result = validateIranianPhone(phone);
   if (!result.valid) {
