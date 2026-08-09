@@ -79,7 +79,10 @@ export default function CompleteProfilePage() {
   const isEditing = Boolean(profile?.profile_completed_at);
 
   return (
-    <div dir="rtl" className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div
+      dir="rtl"
+      className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8"
+    >
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-sm">
         <h1 className="mb-2 text-center text-2xl font-bold text-gray-800">
           {isEditing ? "ویرایش پروفایل" : "تکمیل پروفایل"}
@@ -90,7 +93,11 @@ export default function CompleteProfilePage() {
             : "لطفاً اطلاعات خود را برای ادامه وارد کنید."}
         </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-4"
+          noValidate
+        >
           <StudentProfileFields
             register={register}
             control={control}

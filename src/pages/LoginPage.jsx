@@ -23,7 +23,9 @@ export default function LoginPage() {
 
   const login = useLogin({
     onSuccess: (result) => {
-      navigate(dashboardPathForRole(result.role, result.profile), { replace: true });
+      navigate(dashboardPathForRole(result.role, result.profile), {
+        replace: true,
+      });
     },
     onError: (error) => {
       console.error("[login]", error?.message);

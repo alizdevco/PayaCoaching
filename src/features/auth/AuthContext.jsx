@@ -17,7 +17,6 @@ export function AuthProvider({ children }) {
       setProfile(null);
       return null;
     }
-
     const currentProfile = await getProfile(currentSession.user.id);
     setProfile(currentProfile);
     return currentProfile;

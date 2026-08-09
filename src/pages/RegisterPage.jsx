@@ -9,7 +9,11 @@ import { Navigate, useNavigate, Link } from "react-router-dom";
 
 import StudentProfileFields from "../components/StudentProfileFields.jsx";
 import { useAuth } from "../features/auth/useAuth.js";
-import { useSendOtp, useVerifyOtp, useRegisterWithProfile } from "../features/auth/useRegister.js";
+import {
+  useSendOtp,
+  useVerifyOtp,
+  useRegisterWithProfile,
+} from "../features/auth/useRegister.js";
 import { dashboardPathForRole } from "../features/auth/authRoutes.js";
 import { validateIranianPhone } from "../features/auth/phoneValidation.js";
 import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors.js";
@@ -17,7 +21,6 @@ import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { session, role, profile, isLoading, refreshProfile } = useAuth();
-
   const [step, setStep] = useState(1);
   const [phone, setPhone] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
@@ -37,10 +40,17 @@ export default function RegisterPage() {
   }
 
   return (
-    <div dir="rtl" className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div
+      dir="rtl"
+      className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8"
+    >
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-2xl font-bold text-gray-800">ثبت‌نام</h1>
-        <p className="mb-6 text-center text-sm text-gray-500">مرحله {step} از ۳</p>
+        <h1 className="mb-2 text-center text-2xl font-bold text-gray-800">
+          ثبت‌نام
+        </h1>
+        <p className="mb-6 text-center text-sm text-gray-500">
+          مرحله {step} از ۳
+        </p>
 
         {step === 1 && (
           <PhoneStep
@@ -84,8 +94,11 @@ export default function RegisterPage() {
         )}
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          قبلاً ثبت‌نام کرده‌اید؟{" "}
-          <Link to="/login" className="font-medium text-blue-600 hover:underline">
+          قبلاً ثبت‌نام کرده‌اید؟
+          <Link
+            to="/login"
+            className="font-medium text-blue-600 hover:underline"
+          >
             ورود
           </Link>
         </p>
@@ -100,7 +113,6 @@ function PhoneStep({ onDone, onError, serverError }) {
     handleSubmit,
     formState: { errors },
   } = useForm();
-
   const sendOtp = useSendOtp({
     onSuccess: (result) => onDone(result.phone),
     onError: (error) => {
@@ -108,7 +120,6 @@ function PhoneStep({ onDone, onError, serverError }) {
       onError(getAuthMutationErrorMessage(error, "otp-send"));
     },
   });
-
   function onSubmit(values) {
     onError("");
     const result = validateIranianPhone(values.phone);
@@ -118,11 +129,12 @@ function PhoneStep({ onDone, onError, serverError }) {
     }
     sendOtp.mutate(result.phone);
   }
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">شماره موبایل</label>
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          شماره موبایل
+        </label>
         <input
           type="tel"
           className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
@@ -135,7 +147,9 @@ function PhoneStep({ onDone, onError, serverError }) {
             },
           })}
         />
-        {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
+        {errors.phone && (
+          <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+        )}
       </div>
 
       {serverError && <p className="text-sm text-red-600">{serverError}</p>}
@@ -178,7 +192,9 @@ function OtpStep({ phone, onDone, onBack, onError, serverError }) {
       </p>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">کد تأیید</label>
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          کد تأیید
+        </label>
         <input
           type="text"
           inputMode="numeric"
@@ -189,7 +205,9 @@ function OtpStep({ phone, onDone, onBack, onError, serverError }) {
             minLength: { value: 4, message: "کد تأیید باید حداقل ۴ رقم باشد." },
           })}
         />
-        {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code.message}</p>}
+        {errors.code && (
+          <p className="mt-1 text-sm text-red-600">{errors.code.message}</p>
+        )}
       </div>
 
       {serverError && <p className="text-sm text-red-600">{serverError}</p>}
@@ -241,7 +259,9 @@ function ProfileRegistrationStep({ phone, onDone, onError, serverError }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-      <p className="text-sm text-gray-600">لطفاً اطلاعات پروفایل خود را تکمیل کنید.</p>
+      <p className="text-sm text-gray-600">
+        لطفاً اطلاعات پروفایل خود را تکمیل کنید.
+      </p>
 
       <StudentProfileFields
         register={register}
