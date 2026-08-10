@@ -55,7 +55,7 @@ export default function CompleteProfilePage() {
     },
   });
 
-  if (isLoading || (session && !profile)) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-gray-500">
         در حال بارگذاری...
@@ -69,6 +69,14 @@ export default function CompleteProfilePage() {
 
   if (!session || role !== "student") {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!profile) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (profile.profile_completed_at) {
+    return <Navigate to="/student" replace />;
   }
 
   function onSubmit(values) {

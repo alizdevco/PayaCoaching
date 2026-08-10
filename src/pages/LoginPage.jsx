@@ -12,7 +12,7 @@ import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { session, role, profile, isLoading } = useAuth();
+  const { session, role, profile, isLoading, refreshProfile } = useAuth();
   const [serverError, setServerError] = useState("");
 
   const {
@@ -22,7 +22,8 @@ export default function LoginPage() {
   } = useForm();
 
   const login = useLogin({
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      await refreshProfile();
       navigate(dashboardPathForRole(result.role, result.profile), {
         replace: true,
       });
@@ -41,8 +42,16 @@ export default function LoginPage() {
     );
   }
 
-  if (session) {
+  if (session && role) {
     return <Navigate to={dashboardPathForRole(role, profile)} replace />;
+  }
+
+  if (session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-gray-500">
+        در حال بارگذاری...
+      </div>
+    );
   }
 
   function onSubmit(values) {

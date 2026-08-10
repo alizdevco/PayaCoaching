@@ -10,9 +10,11 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
   const refreshProfile = useCallback(async () => {
     const currentSession = await getSession();
+    setSession(currentSession);
     if (!currentSession?.user?.id) {
       setProfile(null);
       return null;
@@ -52,15 +54,19 @@ export function AuthProvider({ children }) {
     const subscription = onAuthStateChange(async (nextSession) => {
       setSession(nextSession);
       if (nextSession?.user?.id) {
+        setIsProfileLoading(true);
         try {
           const nextProfile = await getProfile(nextSession.user.id);
           setProfile(nextProfile);
         } catch (error) {
           console.error("Failed to load profile:", error.message);
           setProfile(null);
+        } finally {
+          setIsProfileLoading(false);
         }
       } else {
         setProfile(null);
+        setIsProfileLoading(false);
       }
     });
 
@@ -74,7 +80,7 @@ export function AuthProvider({ children }) {
     session,
     profile,
     role: profile?.role ?? null,
-    isLoading,
+    isLoading: isLoading || isProfileLoading,
     refreshProfile,
   };
 

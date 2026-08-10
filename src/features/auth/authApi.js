@@ -1,7 +1,18 @@
 import { supabase } from "../../lib/supabase.js";
-import { toSupabasePhone, validateIranianPhone } from "./phoneValidation.js";
+import {
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+  toSupabasePhone,
+  validateIranianPhone,
+} from "./phoneValidation.js";
 
-export { validateIranianPhone, trimIranianPhone, toSupabasePhone } from "./phoneValidation.js";
+export {
+  validateIranianPhone,
+  trimIranianPhone,
+  toSupabasePhone,
+  toCanonicalPhoneDigits,
+  phoneLookupVariants,
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+} from "./phoneValidation.js";
 
 export function normalizePhone(rawPhone) {
   return toSupabasePhone(rawPhone);
@@ -107,9 +118,23 @@ export async function updateOwnProfile({
   return data;
 }
 
+function isSamePasswordError(error) {
+  const code = String(error?.code ?? "").toLowerCase();
+  const message = String(error?.message ?? "").toLowerCase();
+  return (
+    code === "same_password" ||
+    message.includes("different from the old password")
+  );
+}
+
 // Set password on the currently authenticated user (after OTP verification).
 export async function setOwnPassword(password) {
   const { data, error } = await supabase.auth.updateUser({ password });
+  if (error && isSamePasswordError(error)) {
+    // Password already set to this value (e.g. retry after a partial registration).
+    const { data: currentUserData } = await supabase.auth.getUser();
+    return { user: currentUserData.user };
+  }
   if (error) {
     throw error;
   }
@@ -120,6 +145,13 @@ export async function setOwnPassword(password) {
 // OTP verification already created the auth user + session via verifyOtp().
 export async function registerStudentWithProfile(params) {
   await setOwnPassword(params.password);
+
+  const { error: ensureProfileError } =
+    await supabase.rpc("ensure_own_profile");
+  if (ensureProfileError) {
+    throw ensureProfileError;
+  }
+
   return updateOwnProfile({
     firstName: params.firstName,
     lastName: params.lastName,
@@ -183,12 +215,28 @@ export async function sendOtp(phone) {
 
   const normalizedPhone = toSupabasePhone(result.phone);
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { data: profileExists, error: profileError } = await supabase.rpc(
+    "profile_exists_for_phone",
+    { lookup_phone: result.phone },
+  );
+
+  if (profileError) {
+    const rpcMissing =
+      String(profileError.code ?? "") === "PGRST202" ||
+      String(profileError.message ?? "").includes("profile_exists_for_phone");
+    if (!rpcMissing) {
+      throw profileError;
+    }
+  } else if (profileExists) {
+    throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
+  }
+
+  const { error: otpError } = await supabase.auth.signInWithOtp({
     phone: normalizedPhone,
   });
 
-  if (error) {
-    throw error;
+  if (otpError) {
+    throw otpError;
   }
 
   return { success: true, phone: result.phone };

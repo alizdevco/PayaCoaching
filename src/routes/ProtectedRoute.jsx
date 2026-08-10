@@ -21,7 +21,15 @@ export default function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && role && role !== requiredRole) {
+  if (!role) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-gray-500">
+        در حال بارگذاری...
+      </div>
+    );
+  }
+
+  if (requiredRole && role !== requiredRole) {
     return <Navigate to={dashboardPathForRole(role, profile)} replace />;
   }
 

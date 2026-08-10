@@ -8,8 +8,6 @@ import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 
 const SMS_IR_VERIFY_URL = "https://api.sms.ir/v1/send/verify";
 
-// sms.ir expects a local Iranian number (09121234567), while Supabase Auth
-// sends E.164 (+989121234567).
 function toLocalIranianPhone(phone: string): string {
   const digits = String(phone).replace(/\D/g, "");
 
@@ -41,7 +39,10 @@ Deno.serve(async (request) => {
 
   if (!hookSecret || !apiKey || !templateId) {
     console.error("send-sms is missing required secrets");
-    return jsonResponse({ error: { message: "SMS provider is not configured" } }, 500);
+    return jsonResponse(
+      { error: { message: "SMS provider is not configured" } },
+      500,
+    );
   }
 
   const payload = await request.text();
@@ -53,24 +54,34 @@ Deno.serve(async (request) => {
   };
 
   try {
-    // Supabase prefixes the secret with `v1,whsec_`; standardwebhooks wants the
-    // raw base64 part.
     const webhook = new Webhook(hookSecret.replace("v1,whsec_", ""));
     event = webhook.verify(payload, headers) as typeof event;
   } catch {
     console.error("send-sms rejected a request with an invalid signature");
-    return jsonResponse({ error: { message: "Invalid webhook signature" } }, 401);
+    return jsonResponse(
+      { error: { message: "Invalid webhook signature" } },
+      401,
+    );
   }
+
+  // 1️⃣
+  console.log("✅ Hook verified at:", new Date().toISOString());
 
   const phone = event.user?.phone;
   const otp = event.sms?.otp;
 
   if (!phone || !otp) {
-    return jsonResponse({ error: { message: "Missing phone or otp in payload" } }, 400);
+    return jsonResponse(
+      { error: { message: "Missing phone or otp in payload" } },
+      400,
+    );
   }
 
   let smsResponse: Response;
   try {
+    // 2️⃣
+    console.log("📤 Calling sms.ir at:", new Date().toISOString());
+
     smsResponse = await fetch(SMS_IR_VERIFY_URL, {
       method: "POST",
       headers: {
@@ -86,13 +97,17 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     console.error("send-sms could not reach sms.ir:", (error as Error).message);
-    return jsonResponse({ error: { message: "Could not reach the SMS provider" } }, 502);
+    return jsonResponse(
+      { error: { message: "Could not reach the SMS provider" } },
+      502,
+    );
   }
+
+  // 3️⃣
+  console.log("📥 sms.ir responded at:", new Date().toISOString());
 
   const result = await smsResponse.json().catch(() => null);
 
-  // sms.ir answers with HTTP 200 and status === 1 on success; anything else is
-  // a provider-side rejection (bad template, no credit, blocked number, ...).
   if (!smsResponse.ok || result?.status !== 1) {
     console.error("sms.ir rejected the message:", {
       httpStatus: smsResponse.status,

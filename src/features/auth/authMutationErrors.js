@@ -58,6 +58,12 @@ export function getAuthMutationErrorMessage(error, context) {
     case "login":
       return "شماره/ایمیل یا رمز عبور نادرست است.";
     case "otp-send":
+      if (error?.message && !error?.status) {
+        const code = String(error?.code ?? "");
+        if (!code || code.startsWith("PGRST")) {
+          return error.message;
+        }
+      }
       return "ارسال کد تأیید ناموفق بود. لطفاً دوباره تلاش کنید.";
     case "otp-verify":
       return "کد تأیید نادرست است یا منقضی شده. لطفاً دوباره تلاش کنید.";
