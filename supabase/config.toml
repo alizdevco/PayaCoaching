@@ -405,6 +405,39 @@ deno_version = 2
 enabled = true
 verify_jwt = false
 
+# Storage functions require a logged-in user; role checks happen inside.
+[functions.create-upload-url]
+enabled = true
+verify_jwt = true
+
+[functions.create-download-url]
+enabled = true
+verify_jwt = true
+
+[functions.delete-storage-object]
+enabled = true
+verify_jwt = true
+
+[functions.upload-storage-object]
+enabled = true
+verify_jwt = true
+
+[functions.upload-exam-file]
+enabled = true
+verify_jwt = true
+
+[functions.upload-shared-content]
+enabled = true
+verify_jwt = true
+
+[functions.finalize-shared-upload]
+enabled = true
+verify_jwt = true
+
+[functions.delete-exam-file]
+enabled = true
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
