@@ -59,27 +59,11 @@ const FILE_TYPES_BY_SCOPE: Record<
   exam: ["video", "pdf"],
 };
 
-// Per-scope limits mirror each legacy upload path until unified values are chosen.
-const MAX_BYTES_BY_SCOPE: Record<
-  UploadScope,
-  Partial<Record<FileType, number>>
-> = {
-  student: {
-    video: 1024 * 1024 * 1024,
-    pdf: 500 * 1024 * 1024,
-    image: 20 * 1024 * 1024,
-    report: 500 * 1024 * 1024,
-  },
-  shared: {
-    video: 1024 * 1024 * 1024,
-    pdf: 50 * 1024 * 1024,
-    image: 20 * 1024 * 1024,
-    report: 50 * 1024 * 1024,
-  },
-  exam: {
-    video: 1024 * 1024 * 1024,
-    pdf: 50 * 1024 * 1024,
-  },
+const MAX_BYTES_BY_FILE_TYPE: Record<FileType, number> = {
+  video: 1024 * 1024 * 1024, // 1 GiB
+  pdf: 500 * 1024 * 1024, // 500 MiB
+  image: 20 * 1024 * 1024, // 20 MiB
+  report: 500 * 1024 * 1024, // 500 MiB
 };
 
 function parseScope(value: unknown): UploadScope {
@@ -113,13 +97,10 @@ function getTypeConfig(scope: UploadScope, fileType: unknown) {
     return null;
   }
 
-  const baseConfig = FILE_TYPE_CONFIG[fileType as FileType];
-  const maxBytes = MAX_BYTES_BY_SCOPE[scope][fileType as FileType];
-  if (maxBytes === undefined) {
-    return null;
-  }
+  const typedFileType = fileType as FileType;
+  const baseConfig = FILE_TYPE_CONFIG[typedFileType];
 
-  return { ...baseConfig, maxBytes };
+  return { ...baseConfig, maxBytes: MAX_BYTES_BY_FILE_TYPE[typedFileType] };
 }
 
 function buildObjectKey(
