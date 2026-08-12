@@ -262,7 +262,14 @@ Deno.serve(async (request) => {
   }
 
   return jsonResponse(
-    { upload_url: uploadUrl, object_key: objectKey, mime_type },
+    {
+      upload_url: uploadUrl,
+      object_key: objectKey,
+      mime_type,
+      ...(scope === "exam"
+        ? { public_url: publicArvan!.publicUrl(objectKey) }
+        : {}),
+    },
     200,
   );
 });
