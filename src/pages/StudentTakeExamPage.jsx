@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -114,7 +114,12 @@ function useExamCountdown(startedAt, durationMinutes, onExpire) {
   return { remainingMs, isExpired };
 }
 
-function AnswerSheetGrid({ value, onChange, questionCount, disabled = false }) {
+const AnswerSheetGrid = memo(function AnswerSheetGrid({
+  value,
+  onChange,
+  questionCount,
+  disabled = false,
+}) {
   return (
     <div className="max-h-[520px] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
       <div className="sticky top-0 z-10 grid grid-cols-[3rem_repeat(4,minmax(0,1fr))] gap-1 border-b border-slate-200 bg-slate-50 px-2 py-2 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
@@ -140,14 +145,20 @@ function AnswerSheetGrid({ value, onChange, questionCount, disabled = false }) {
                 {question.toLocaleString("fa-IR")}
               </span>
               {ANSWER_OPTIONS.map((option) => (
-                <label
+                <button
                   key={option}
+                  type="button"
+                  disabled={disabled}
+                  aria-pressed={selected === option}
+                  aria-label={`سوال ${question.toLocaleString("fa-IR")} گزینه ${option.toLocaleString("fa-IR")}`}
                   className={[
-                    "flex cursor-pointer items-center justify-center rounded-md border px-1 py-1.5 text-xs transition-colors",
+                    "flex items-center justify-center rounded-md border px-1 py-1.5 text-xs transition-colors",
                     selected === option
                       ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300"
                       : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800/60",
-                    disabled ? "cursor-not-allowed opacity-60" : "",
+                    disabled
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer",
                   ].join(" ")}
                   onClick={() => {
                     if (disabled) {
@@ -165,23 +176,52 @@ function AnswerSheetGrid({ value, onChange, questionCount, disabled = false }) {
                     });
                   }}
                 >
-                  <input
-                    type="radio"
-                    name={`student-answer-${key}`}
-                    value={option}
-                    checked={selected === option}
-                    disabled={disabled}
-                    readOnly
-                    className="sr-only"
-                  />
                   {option.toLocaleString("fa-IR")}
-                </label>
+                </button>
               ))}
             </div>
           );
         })}
       </div>
     </div>
+  );
+});
+
+function ExamCountdown({
+  startedAt,
+  durationMinutes,
+  isFinalized,
+  onExpire,
+  onExpiredChange,
+}) {
+  const { remainingMs, isExpired } = useExamCountdown(
+    startedAt,
+    durationMinutes,
+    onExpire,
+  );
+
+  useEffect(() => {
+    onExpiredChange?.(isExpired);
+  }, [isExpired, onExpiredChange]);
+
+  if (isFinalized) {
+    return <span>آزمون پایان یافته</span>;
+  }
+
+  return (
+    <span>
+      زمان باقی‌مانده:{" "}
+      <strong
+        className={[
+          "font-mono text-base",
+          isExpired
+            ? "text-red-600 dark:text-red-400"
+            : "text-emerald-600 dark:text-emerald-400",
+        ].join(" ")}
+      >
+        {formatRemainingTime(remainingMs)}
+      </strong>
+    </span>
   );
 }
 
@@ -331,11 +371,10 @@ export default function StudentTakeExamPage() {
     }
   }, [attempt?.id, attempt?.status, finalizeAttempt, saveNow]);
 
-  const { remainingMs, isExpired } = useExamCountdown(
-    attempt?.started_at,
-    exam?.duration_minutes ?? 0,
-    handleAutoExpire,
-  );
+  // ExamCountdown owns the 1s tick and reports expiry back via onExpiredChange,
+  // so this stays out of the parent render path (keeping the answer grid off the
+  // per-second re-render). It resets itself whenever the countdown remounts.
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     if (!isInProgress) {
@@ -389,6 +428,10 @@ export default function StudentTakeExamPage() {
   const isError = isExamError || isAttemptError;
   const isBusy =
     startDownload.isPending || finalizeAttempt.isPending || isSaving;
+  const isAnswerSheetDisabled =
+    !isInProgress ||
+    startDownload.isPending ||
+    finalizeAttempt.isPending;
 
   const questionCount = exam?.question_count ?? 150;
 
@@ -504,23 +547,13 @@ export default function StudentTakeExamPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <Clock size={16} aria-hidden="true" />
-              {isFinalized ? (
-                <span>آزمون پایان یافته</span>
-              ) : (
-                <span>
-                  زمان باقی‌مانده:{" "}
-                  <strong
-                    className={[
-                      "font-mono text-base",
-                      isExpired
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-emerald-600 dark:text-emerald-400",
-                    ].join(" ")}
-                  >
-                    {formatRemainingTime(remainingMs)}
-                  </strong>
-                </span>
-              )}
+              <ExamCountdown
+                startedAt={attempt?.started_at}
+                durationMinutes={exam?.duration_minutes ?? 0}
+                isFinalized={isFinalized}
+                onExpire={handleAutoExpire}
+                onExpiredChange={setIsExpired}
+              />
             </div>
 
             {isInProgress && (
@@ -576,7 +609,7 @@ export default function StudentTakeExamPage() {
             value={localAnswers}
             onChange={setLocalAnswers}
             questionCount={questionCount}
-            disabled={!isInProgress || isBusy}
+            disabled={isAnswerSheetDisabled}
           />
         </Card>
       )}

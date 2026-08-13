@@ -23,6 +23,22 @@ function invalidateOnlineExamQueries(queryClient, examId) {
   }
 }
 
+// Finalizing an attempt only mutates online_exam_attempts (status/score). It
+// cannot change online_exams metadata, so the exam-metadata queries
+// (["online-exams"] list and ["online-exams", examId] detail) are intentionally
+// left untouched here — every attempt- and student-facing query is still
+// invalidated.
+function invalidateOnlineExamAttemptQueries(queryClient, examId) {
+  queryClient.invalidateQueries({ queryKey: ["student-online-exams"] });
+  queryClient.invalidateQueries({ queryKey: ["my-online-exam-attempts"] });
+
+  if (examId) {
+    queryClient.invalidateQueries({ queryKey: ["student-online-exams", examId] });
+    queryClient.invalidateQueries({ queryKey: ["online-exam-attempts", examId] });
+    queryClient.invalidateQueries({ queryKey: ["online-exam-attempt", examId] });
+  }
+}
+
 export function useCreateOnlineExam() {
   const queryClient = useQueryClient();
 
@@ -73,7 +89,10 @@ export function useStartOnlineExamDownload() {
 
   return useMutation({
     mutationFn: ({ examId }) => startOnlineExamDownload(examId),
-    onSuccess: (_data, { examId }) => {
+    onSuccess: (data, { examId }) => {
+      if (data?.attempt) {
+        queryClient.setQueryData(["online-exam-attempt", examId], data.attempt);
+      }
       queryClient.invalidateQueries({ queryKey: ["online-exam-attempt", examId] });
     },
   });
@@ -86,7 +105,7 @@ export function useFinalizeOnlineExamAttempt() {
     mutationFn: ({ attemptId, force = true }) =>
       finalizeOnlineExamAttempt(attemptId, force),
     onSuccess: (data) => {
-      invalidateOnlineExamQueries(queryClient, data.exam_id);
+      invalidateOnlineExamAttemptQueries(queryClient, data.exam_id);
     },
   });
 }
@@ -97,7 +116,7 @@ export function useFinalizeDueOnlineExamAttempts() {
   return useMutation({
     mutationFn: finalizeDueOnlineExamAttempts,
     onSuccess: (_count, examId) => {
-      invalidateOnlineExamQueries(queryClient, examId);
+      invalidateOnlineExamAttemptQueries(queryClient, examId);
     },
   });
 }
