@@ -93,6 +93,7 @@ export default function LoginPage() {
             <input
               type="text"
               autoComplete="username"
+              data-testid="login-identifier"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
               placeholder="09123456789"
               {...register("identifier", {
@@ -120,6 +121,7 @@ export default function LoginPage() {
             <input
               type="password"
               autoComplete="current-password"
+              data-testid="login-password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
               {...register("password", { required: "رمز عبور الزامی است." })}
             />
@@ -135,6 +137,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={login.isPending}
+            data-testid="login-submit"
             className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
           >
             {login.isPending ? "در حال ورود..." : "ورود"}

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Base styles for the whole app */
 html,
 body,
@@ -9,12 +11,145 @@ body,
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
+  font-family: "Vazirmatn", system-ui, sans-serif;
+}
+
+/* Admin panel animations and card effects */
+.admin-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease,
+    border-color 150ms ease,
+    background-color 200ms ease;
+}
+
+.admin-stat-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.12);
+}
+
+.admin-action-card {
+  border: 1px solid transparent;
+}
+
+.admin-action-card:hover {
+  transform: scale(1.01);
+  border-color: #10b981;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.12);
+}
+
+.admin-stat-number {
+  font-weight: 700;
+  position: relative;
+  display: inline-block;
+}
+
+.admin-stat-number::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(16, 185, 129, 0.25);
+  border-radius: 2px;
+}
+
+@keyframes admin-page-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.admin-page-enter {
+  animation: admin-page-fade-in 300ms ease forwards;
+}
+
+/* Sidebar logo pulse */
+@keyframes admin-logo-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+.admin-logo-pulse {
+  animation: admin-logo-pulse 2s ease-in-out infinite;
+}
+
+/* Sliding active nav indicator */
+.admin-nav-indicator {
+  transition:
+    top 250ms ease,
+    height 250ms ease;
+}
+
+/* Tablet nav tooltips */
+.admin-nav-tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 10px);
+  z-index: 60;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  border-radius: 0.375rem;
+  background: #0f172a;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  pointer-events: none;
+}
+
+.dark .admin-nav-tooltip {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+/* Staggered card fade-in */
+@keyframes admin-stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-stagger-in {
+  animation: admin-stagger-fade-in 400ms ease both;
+}
+
+.admin-stagger-0 {
+  animation-delay: 0ms;
+}
+
+.admin-stagger-1 {
+  animation-delay: 100ms;
+}
+
+.admin-stagger-2 {
+  animation-delay: 200ms;
+}
+
+.admin-stagger-3 {
+  animation-delay: 300ms;
+}
+
+.admin-stagger-4 {
+  animation-delay: 400ms;
+}
+
+/* Action card arrow slide on hover (RTL: slides toward content) */
+.admin-action-card:hover .admin-action-arrow {
+  transform: translateX(-4px);
 }

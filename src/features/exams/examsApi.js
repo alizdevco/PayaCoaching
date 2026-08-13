@@ -1,4 +1,6 @@
 import { supabase } from "../../lib/supabase.js";
+import { invokeEdgeFunction } from "../../lib/edgeFunctions.js";
+import { uploadFileToStorage } from "../../lib/storageUpload.js";
 
 const EXAM_COLUMNS =
   "id, exam_date, title, content, description, is_published, published_at, created_by, updated_by, created_at, updated_at";
@@ -25,21 +27,6 @@ const EXAM_DETAIL_SELECT = `
   exam_analysis_files ( ${EXAM_FILE_COLUMNS} )
 `;
 
-async function invokeFunction(name, body) {
-  const { data, error } = await supabase.functions.invoke(name, { body });
-
-  if (error) {
-    throw error;
-  }
-  if (data?.error) {
-    throw new Error(
-      typeof data.error === "string" ? data.error : data.error.message,
-    );
-  }
-
-  return data;
-}
-
 function resolveMimeType(file, fileType) {
   const raw = (file.type || "").toLowerCase().trim();
   if (raw) {
@@ -52,75 +39,6 @@ function resolveMimeType(file, fileType) {
   };
 
   return defaults[fileType] ?? "application/octet-stream";
-}
-
-/**
- * Uploads a file body via XMLHttpRequest so upload.onprogress fires.
- */
-function putFileWithProgress(uploadUrl, contentType, file, onProgress) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let settled = false;
-    let stallTimer = null;
-
-    function clearStallTimer() {
-      if (stallTimer !== null) {
-        clearTimeout(stallTimer);
-        stallTimer = null;
-      }
-    }
-
-    function settle(fn) {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearStallTimer();
-      fn();
-    }
-
-    function rejectUpload(message) {
-      settle(() => reject(new Error(message)));
-    }
-
-    function armStallTimeout() {
-      clearStallTimer();
-      stallTimer = setTimeout(() => {
-        rejectUpload("آپلود به‌دلیل قطع ارتباط متوقف شد.");
-        xhr.abort();
-      }, UPLOAD_STALL_TIMEOUT_MS);
-    }
-
-    xhr.open("PUT", uploadUrl);
-    xhr.setRequestHeader("Content-Type", contentType);
-
-    xhr.upload.onprogress = (event) => {
-      armStallTimeout();
-      if (onProgress && event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        settle(() => resolve());
-        return;
-      }
-
-      rejectUpload(`خطا در آپلود فایل به فضای ذخیره‌سازی (${xhr.status})`);
-    };
-
-    xhr.onerror = () => {
-      rejectUpload("خطا در آپلود فایل به فضای ذخیره‌سازی");
-    };
-
-    xhr.onabort = () => {
-      rejectUpload("آپلود لغو شد.");
-    };
-
-    armStallTimeout();
-    xhr.send(file);
-  });
 }
 
 async function getNextSortOrder(examAnalysisId, fileType) {
@@ -487,40 +405,21 @@ export async function uploadExamFile(
   const mimeType = resolveMimeType(file, fileType);
   const trimmedTitle = String(title ?? "").trim() || "فایل";
 
-  let presign;
-  try {
-    presign = await invokeFunction("create-upload-url", {
-      scope: "exam",
-      exam_date: examAnalysis.exam_date,
-      file_type: fileType,
-      mime_type: mimeType,
-      file_size: file.size,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "خطا در دریافت آدرس آپلود";
-    const presignError = new Error(message);
-    presignError.cause = error;
-    throw presignError;
-  }
-
-  const uploadUrl = presign.upload_url;
-  const objectKey = presign.object_key;
-  const signedMimeType = presign.mime_type ?? mimeType;
-  const publicUrl = presign.public_url;
+  const {
+    objectKey,
+    mimeType: signedMimeType,
+    publicUrl,
+  } = await uploadFileToStorage({
+    scope: "exam",
+    examDate: examAnalysis.exam_date,
+    fileType,
+    file,
+    mimeType,
+    onProgress,
+  });
 
   if (!publicUrl) {
     throw new Error("آدرس عمومی فایل دریافت نشد.");
-  }
-
-  try {
-    await putFileWithProgress(uploadUrl, signedMimeType, file, onProgress);
-  } catch (error) {
-    throw error instanceof Error
-      ? error
-      : new Error("خطا در آپلود فایل به فضای ذخیره‌سازی");
   }
 
   const uploadedBy = await getCurrentUserId();
@@ -592,5 +491,5 @@ export async function uploadExamFileLegacy(
 }
 
 export async function deleteExamFile(fileId) {
-  await invokeFunction("delete-exam-file", { file_id: fileId });
+  await invokeEdgeFunction("delete-exam-file", { file_id: fileId });
 }
