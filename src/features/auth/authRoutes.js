@@ -7,5 +7,5 @@ export function dashboardPathForRole(role, profile) {
   if (!profile?.profile_completed_at) {
     return "/complete-profile";
   }
-  return "/student";
+  return "/student/exams";
 }

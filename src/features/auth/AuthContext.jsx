@@ -2,7 +2,7 @@
 // Loads the session once on app start and keeps it in sync via
 // onAuthStateChange, so a valid session survives refresh and browser restart.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthContext } from "./authContext.js";
 import { getSession, getProfile, onAuthStateChange } from "./authApi.js";
 
@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const refreshProfile = useCallback(async () => {
     const currentSession = await getSession();
@@ -51,22 +56,46 @@ export function AuthProvider({ children }) {
 
     loadInitialSession();
 
-    const subscription = onAuthStateChange(async (nextSession) => {
+    const subscription = onAuthStateChange(async (event, nextSession) => {
       setSession(nextSession);
-      if (nextSession?.user?.id) {
-        setIsProfileLoading(true);
-        try {
-          const nextProfile = await getProfile(nextSession.user.id);
-          setProfile(nextProfile);
-        } catch (error) {
-          console.error("Failed to load profile:", error.message);
-          setProfile(null);
-        } finally {
-          setIsProfileLoading(false);
-        }
-      } else {
+
+      if (!nextSession?.user?.id) {
         setProfile(null);
         setIsProfileLoading(false);
+        return;
+      }
+
+      const userId = nextSession.user.id;
+      const currentProfile = profileRef.current;
+
+      // Token refresh only renews the JWT — profile data is unchanged.
+      if (event === "TOKEN_REFRESHED") {
+        return;
+      }
+
+      // Same user already loaded — skip refetch to avoid tab-switch flicker.
+      if (currentProfile?.id === userId && event !== "USER_UPDATED") {
+        return;
+      }
+
+      const shouldBlockUi = !currentProfile || currentProfile.id !== userId;
+
+      if (shouldBlockUi) {
+        setIsProfileLoading(true);
+      }
+
+      try {
+        const nextProfile = await getProfile(userId);
+        setProfile(nextProfile);
+      } catch (error) {
+        console.error("Failed to load profile:", error.message);
+        if (shouldBlockUi) {
+          setProfile(null);
+        }
+      } finally {
+        if (shouldBlockUi) {
+          setIsProfileLoading(false);
+        }
       }
     });
 
@@ -80,7 +109,8 @@ export function AuthProvider({ children }) {
     session,
     profile,
     role: profile?.role ?? null,
-    isLoading: isLoading || isProfileLoading,
+    isLoading,
+    isProfileLoading,
     refreshProfile,
   };
 

@@ -194,8 +194,8 @@ export async function getProfile(userId) {
 }
 
 export function onAuthStateChange(callback) {
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session);
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session);
   });
   return data.subscription;
 }

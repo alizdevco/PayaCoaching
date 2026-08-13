@@ -1,0 +1,23 @@
+{
+  "CORSRules": [
+    {
+      "AllowedHeaders": [
+        "Content-Type",
+        "Content-Length",
+        "Authorization",
+        "x-amz-date",
+        "x-amz-content-sha256",
+        "ETag"
+      ],
+      "AllowedMethods": ["GET", "PUT", "HEAD", "POST"],
+      "AllowedOrigins": [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "https://payacoaching.ir",
+        "https://www.payacoaching.ir"
+      ],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+}

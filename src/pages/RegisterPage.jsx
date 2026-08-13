@@ -218,7 +218,7 @@ export default function RegisterPage() {
             serverError={serverError}
             onDone={async () => {
               await refreshProfile();
-              navigate("/student", { replace: true });
+              navigate("/student/exams", { replace: true });
             }}
           />
         )}

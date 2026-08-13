@@ -1,4 +1,6 @@
 import { supabase } from "../../lib/supabase.js";
+import { invokeEdgeFunction } from "../../lib/edgeFunctions.js";
+import { uploadFileToStorage } from "../../lib/storageUpload.js";
 
 const CONTENT_COLUMNS =
   "id, student_id, title, description, file_type, file_path, mime_type, file_size, report_date, uploaded_by, created_at, updated_at";
@@ -8,21 +10,6 @@ const UPLOAD_STALL_TIMEOUT_MS = 60_000;
 const MIME_ALIASES = {
   "image/pjpeg": "image/jpeg",
 };
-
-async function invokeFunction(name, body) {
-  const { data, error } = await supabase.functions.invoke(name, { body });
-
-  if (error) {
-    throw error;
-  }
-  if (data?.error) {
-    throw new Error(
-      typeof data.error === "string" ? data.error : data.error.message,
-    );
-  }
-
-  return data;
-}
 
 function resolveMimeType(file, fileType) {
   const raw = (file.type || "").toLowerCase().trim();
@@ -38,79 +25,6 @@ function resolveMimeType(file, fileType) {
   };
 
   return defaults[fileType] ?? "application/octet-stream";
-}
-
-/**
- * Uploads a file body via XMLHttpRequest so upload.onprogress fires.
- * Standard fetch() has no upload progress API in browsers.
- */
-function putFileWithProgress(uploadUrl, contentType, file, onProgress) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let settled = false;
-    let stallTimer = null;
-
-    function clearStallTimer() {
-      if (stallTimer !== null) {
-        clearTimeout(stallTimer);
-        stallTimer = null;
-      }
-    }
-
-    function settle(fn) {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearStallTimer();
-      fn();
-    }
-
-    function rejectUpload(message) {
-      settle(() => reject(new Error(message)));
-    }
-
-    // Inactivity watchdog: abort only if no upload progress is observed for
-    // UPLOAD_STALL_TIMEOUT_MS. Unlike xhr.timeout (a *total* request budget),
-    // this resets on every progress event so long-but-healthy uploads finish.
-    function armStallTimeout() {
-      clearStallTimer();
-      stallTimer = setTimeout(() => {
-        rejectUpload("آپلود به‌دلیل قطع ارتباط متوقف شد.");
-        xhr.abort();
-      }, UPLOAD_STALL_TIMEOUT_MS);
-    }
-
-    xhr.open("PUT", uploadUrl);
-    xhr.setRequestHeader("Content-Type", contentType);
-
-    xhr.upload.onprogress = (event) => {
-      armStallTimeout();
-      if (onProgress && event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        settle(() => resolve());
-        return;
-      }
-
-      rejectUpload(`خطا در آپلود فایل به فضای ذخیره‌سازی (${xhr.status})`);
-    };
-
-    xhr.onerror = () => {
-      rejectUpload("خطا در آپلود فایل به فضای ذخیره‌سازی");
-    };
-
-    xhr.onabort = () => {
-      rejectUpload("آپلود لغو شد.");
-    };
-
-    armStallTimeout();
-    xhr.send(file);
-  });
 }
 
 function uploadWithProgress(url, headers, body, onProgress) {
@@ -223,25 +137,6 @@ async function getCurrentUserId() {
   return user.id;
 }
 
-async function requestPresignedUploadUrl(studentId, fileType, mimeType, fileSize) {
-  try {
-    return await invokeFunction("create-upload-url", {
-      student_id: studentId,
-      file_type: fileType,
-      mime_type: mimeType,
-      file_size: fileSize,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "خطا در دریافت آدرس آپلود";
-    const presignError = new Error(message);
-    presignError.cause = error;
-    throw presignError;
-  }
-}
-
 export async function getStudentContents(studentId) {
   const { data, error } = await supabase
     .from("student_contents")
@@ -265,23 +160,14 @@ export async function uploadFile(
 ) {
   const mimeType = resolveMimeType(file, fileType);
 
-  const presign = await requestPresignedUploadUrl(
+  const { objectKey, mimeType: signedMimeType } = await uploadFileToStorage({
+    scope: "student",
     studentId,
     fileType,
+    file,
     mimeType,
-    file.size,
-  );
-  const uploadUrl = presign.upload_url;
-  const objectKey = presign.object_key;
-  const signedMimeType = presign.mime_type ?? mimeType;
-
-  try {
-    await putFileWithProgress(uploadUrl, signedMimeType, file, onProgress);
-  } catch (error) {
-    throw error instanceof Error
-      ? error
-      : new Error("خطا در آپلود فایل به فضای ذخیره‌سازی");
-  }
+    onProgress,
+  });
 
   const uploadedBy = await getCurrentUserId();
   const trimmedTitle = String(title ?? "").trim();
@@ -322,38 +208,16 @@ export async function uploadSharedContent(
 
   const mimeType = resolveMimeType(file, fileType);
 
-  let presign;
-  try {
-    presign = await invokeFunction("create-upload-url", {
-      scope: "shared",
-      file_type: fileType,
-      mime_type: mimeType,
-      file_size: file.size,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "خطا در دریافت آدرس آپلود";
-    const presignError = new Error(message);
-    presignError.cause = error;
-    throw presignError;
-  }
-
-  const uploadUrl = presign.upload_url;
-  const objectKey = presign.object_key;
-  const signedMimeType = presign.mime_type ?? mimeType;
+  const { objectKey, mimeType: signedMimeType } = await uploadFileToStorage({
+    scope: "shared",
+    fileType,
+    file,
+    mimeType,
+    onProgress,
+  });
 
   try {
-    await putFileWithProgress(uploadUrl, signedMimeType, file, onProgress);
-  } catch (error) {
-    throw error instanceof Error
-      ? error
-      : new Error("خطا در آپلود فایل به فضای ذخیره‌سازی");
-  }
-
-  try {
-    return await invokeFunction("finalize-shared-upload", {
+    return await invokeEdgeFunction("finalize-shared-upload", {
       object_key: objectKey,
       file_type: fileType,
       title: trimmedTitle,
@@ -367,6 +231,7 @@ export async function uploadSharedContent(
         : "خطا در ثبت نهایی فایل";
     throw new Error(
       `${detail} فایل در فضای ذخیره‌سازی آپلود شده، اما ثبت برای دانش‌آموزان انجام نشد.`,
+      { cause: error },
     );
   }
 }
@@ -436,7 +301,7 @@ export async function addLink(studentId, title, url) {
 }
 
 export async function getDownloadUrl(contentId) {
-  const { download_url: downloadUrl } = await invokeFunction(
+  const { download_url: downloadUrl } = await invokeEdgeFunction(
     "create-download-url",
     { content_id: contentId },
   );
@@ -445,5 +310,5 @@ export async function getDownloadUrl(contentId) {
 }
 
 export async function deleteContent(contentId) {
-  await invokeFunction("delete-storage-object", { content_id: contentId });
+  await invokeEdgeFunction("delete-storage-object", { content_id: contentId });
 }

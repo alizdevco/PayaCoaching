@@ -133,6 +133,16 @@ Exam-analysis pages are public and must be accessible without authentication.
 
 The user selects an exam date from a dropdown and is redirected to the corresponding public exam-analysis page.
 
+Each published exam analysis may include:
+
+* Title
+* Main content text
+* Optional description (short summary)
+* Optional public video URL (`video_path` in the public Arvan/Liara bucket)
+* Optional PDF attachment (stored in the public bucket when used)
+
+Public exam-analysis media uses the public bucket. Do not use presigned URLs for published exam-analysis assets.
+
 Admins must be able to create and manage exam-analysis content from the admin dashboard.
 
 ---
@@ -222,9 +232,14 @@ Admins must be able to:
 * Upload private content for a selected student
 * View uploaded student content
 * Delete or archive student content
+* Log phone consultations for a student (full history: date, time, optional notes)
+* Edit or delete consultation records
+* Upload dated daily work reports (PDF) for a selected student
+* View a student's full report history (newest report first)
 * Create exam-analysis content
 * Edit exam-analysis content
 * Publish or unpublish exam-analysis content
+* Attach optional video and description to exam analyses
 
 Admin access must be enforced by RLS and Edge Functions, not only by React route guards.
 
@@ -239,9 +254,11 @@ Students must be able to:
 * Open or stream their assigned videos
 * View their assigned images
 * View or download their assigned PDF files
+* View their full consultation history (past and upcoming phone consultations)
+* View their full daily work report history (newest report at the top)
 * Log out
 
-A student must never be able to query or access another student's private content.
+A student must never be able to query or access another student's private content, consultations, or reports.
 
 ---
 
@@ -252,12 +269,13 @@ Private student files include:
 * Video
 * PDF
 * Image
+* Report (dated daily work report PDF)
 
 The actual files must be stored in Arvan Cloud Object Storage.
 
 Supabase Database stores only file metadata.
 
-Example metadata:
+Example metadata (`student_contents`):
 
 ```text
 id
@@ -268,15 +286,21 @@ file_type
 file_path
 mime_type
 file_size
+report_date
 uploaded_by
 created_at
 deleted_at
 ```
 
+`report_date` is only set when `file_type = 'report'`. It is the calendar date the report covers (e.g. Farvardin 1st), not the upload timestamp. Sort report lists by `report_date desc` so the newest report appears first.
+
+Allowed `file_type` values: `video`, `pdf`, `image`, `report`.
+
 Example Arvan Cloud object path:
 
 ```text
 students/{student_id}/videos/{uuid}.mp4
+students/{student_id}/reports/{uuid}.pdf
 ```
 
 Do not use the original filename as the only unique object key.
@@ -284,6 +308,32 @@ Do not use the original filename as the only unique object key.
 Use a generated UUID or another collision-safe identifier.
 
 Never store large binary files inside Supabase Database.
+
+---
+
+# Phone Consultation Scheduling
+
+Each student has a full consultation history — not a single current record.
+
+Consultations are stored in the `consultations` table:
+
+```text
+id
+student_id
+scheduled_at
+notes
+created_at
+updated_at
+```
+
+* `scheduled_at` — exact date and time of the consultation
+* `notes` — optional admin note (e.g. consultation topic)
+
+Admins create, update, and delete consultation records from the student details page in the admin dashboard.
+
+Students read only their own consultation rows. They must see both past and upcoming consultations.
+
+Do not store consultation history in `profiles` or client-side state.
 
 ---
 
@@ -383,6 +433,13 @@ Before upload, validate:
 * Generated object path
 
 Do not trust client-provided MIME type or filename alone.
+
+When uploading a daily work report:
+
+* Set `file_type = 'report'`
+* Set `report_date` to the calendar date the report covers
+* Use PDF MIME type and store the file in the private bucket
+* Sort lists by `report_date desc`, not `created_at`
 
 ---
 
@@ -502,6 +559,11 @@ src/
 │   │   ├── useUploadContent.js
 │   │   └── useContentSignedUrl.js
 │   │
+│   ├── consultations/
+│   │   ├── consultationsApi.js
+│   │   ├── useConsultations.js
+│   │   └── useConsultationMutations.js
+│   │
 │   └── exams/
 │       ├── examsApi.js
 │       ├── useExamList.js
@@ -564,6 +626,7 @@ Organize API functions by feature:
 features/auth/authApi.js
 features/students/studentsApi.js
 features/content/contentApi.js
+features/consultations/consultationsApi.js
 features/exams/examsApi.js
 ```
 
@@ -604,6 +667,8 @@ Example:
 ["students", filters, page]
 ["student", student_id]
 ["student-content", student_id]
+["student-reports", student_id]
+["consultations", student_id]
 ["exam-analysis", exam_date]
 ```
 
@@ -641,6 +706,28 @@ Recommended main tables:
 profiles
 student_contents
 exam_analyses
+consultations
+```
+
+`exam_analyses` columns include `video_path` and `description` for optional public media and summary text.
+
+`student_contents` uses `file_type = 'report'` with `report_date` for dated daily work reports.
+
+`exam_analyses` stores public exam content keyed by `exam_date`:
+
+```text
+id
+exam_date
+title
+content
+description
+video_path
+is_published
+published_at
+created_by
+updated_by
+created_at
+updated_at
 ```
 
 Potential supporting tables may be added only when needed.
@@ -685,13 +772,15 @@ Students may:
 
 * Read their own profile
 * Update only approved fields of their own profile
-* Read only their own assigned content
+* Read only their own assigned content (including reports where `file_type = 'report'`)
+* Read only their own consultation rows
 * Read published public exam analyses
 
 Admins may:
 
 * Read student profiles
-* Manage student content
+* Manage student content (including dated work reports)
+* Full CRUD on consultations for any student
 * Manage exam analyses
 
 Public anonymous users may:
@@ -713,6 +802,8 @@ Use clear routes:
  /complete-profile
  /student
  /student/content
+ /student/consultations
+ /student/reports
  /admin
  /admin/students
  /admin/students/:student_id
@@ -813,6 +904,8 @@ Examples:
 * No students found
 * Failed to load students
 * No content assigned yet
+* No consultations scheduled yet
+* No work reports uploaded yet
 * Upload in progress
 * Upload failed
 * Signed link expired
@@ -944,14 +1037,18 @@ Implement the project in this order:
 20. Implement student private-content queries
 21. Implement secure presigned download flow
 22. Implement browser video streaming
-23. Implement public exam-analysis management
-24. Implement public exam-analysis pages
-25. Complete landing page
-26. Add loading, error, and empty states
-27. Test authorization and RLS
-28. Test uploads and signed URL expiration
-29. Deploy the React static app to Liara
-30. Perform final production security checks
+23. Implement admin consultation logging on student details
+24. Implement student consultation history view
+25. Implement admin dated work report upload
+26. Implement student work report history view
+27. Implement public exam-analysis management (with video and description)
+28. Implement public exam-analysis pages
+29. Complete landing page
+30. Add loading, error, and empty states
+31. Test authorization and RLS
+32. Test uploads and signed URL expiration
+33. Deploy the React static app to Liara
+34. Perform final production security checks
 
 Do not attempt to build every feature at once.
 
@@ -1001,7 +1098,7 @@ Cursor must never:
 * Use permanent public URLs for private student files
 * Trust a client-provided role
 * Trust a client-provided student ID for authorization
-* Allow students to access another student's content
+* Allow students to access another student's content, consultations, or reports
 * Upload large files through insecure frontend credentials
 * Install unnecessary packages
 * Make major architectural changes without explaining them first

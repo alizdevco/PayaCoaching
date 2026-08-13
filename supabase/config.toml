@@ -410,6 +410,10 @@ verify_jwt = false
 enabled = true
 verify_jwt = true
 
+[functions.multipart-upload]
+enabled = true
+verify_jwt = true
+
 [functions.create-download-url]
 enabled = true
 verify_jwt = true

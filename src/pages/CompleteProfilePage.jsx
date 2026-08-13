@@ -47,7 +47,7 @@ export default function CompleteProfilePage() {
   const completeProfile = useCompleteProfile({
     onSuccess: async () => {
       await refreshProfile();
-      navigate("/student", { replace: true });
+      navigate("/student/exams", { replace: true });
     },
     onError: (error) => {
       console.error("[completeProfile]", error?.message);
@@ -76,7 +76,7 @@ export default function CompleteProfilePage() {
   }
 
   if (profile.profile_completed_at) {
-    return <Navigate to="/student" replace />;
+    return <Navigate to="/student/exams" replace />;
   }
 
   function onSubmit(values) {
