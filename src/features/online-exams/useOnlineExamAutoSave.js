@@ -38,6 +38,14 @@ export function useOnlineExamAutoSave(
     enabled && attemptId && status === "in_progress",
   );
 
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    lastSavedRef.current = answersRef.current;
+  }, [attemptId, isActive]);
+
   const persistAnswers = useCallback(
     async (nextAnswers) => {
       if (!attemptId || status !== "in_progress") {

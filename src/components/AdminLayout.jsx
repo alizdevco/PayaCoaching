@@ -32,11 +32,10 @@ function AdminNavLink({ to, end, label, icon: Icon, onNavigate }) {
   function handleClick(event) {
     event.preventDefault();
     setIsPressed(true);
-    window.setTimeout(() => {
-      setIsPressed(false);
-      navigate(to);
-      onNavigate?.();
-    }, 100);
+    navigate(to);
+    onNavigate?.();
+    // Keep the brief press animation without delaying navigation.
+    window.setTimeout(() => setIsPressed(false), 100);
   }
 
   return (
