@@ -5,7 +5,7 @@ import { toPersianDigits } from "../../lib/persianDate.js";
 
 const TOTAL_STEPS = 3;
 
-const STEP_LABELS = ["شماره موبایل", "تأیید کد", "تکمیل پروفایل"];
+const DEFAULT_STEP_LABELS = ["شماره موبایل", "تأیید کد", "تکمیل پروفایل"];
 
 export function formatRegisterStepLabel(currentStep, totalSteps = TOTAL_STEPS) {
   return `مرحله ${toPersianDigits(currentStep)} از ${toPersianDigits(totalSteps)}`;
@@ -23,7 +23,7 @@ function StepConnector({ completed }) {
   );
 }
 
-function StepCircle({ step, currentStep }) {
+function StepCircle({ step, currentStep, stepLabels }) {
   const isCompleted = step < currentStep;
   const isCurrent = step === currentStep;
   const isUpcoming = step > currentStep;
@@ -54,7 +54,7 @@ function StepCircle({ step, currentStep }) {
         dir="rtl"
         className="text-center text-[11px] leading-snug text-[#78716C] sm:text-xs"
       >
-        {STEP_LABELS[step - 1]}
+        {stepLabels[step - 1]}
       </span>
     </div>
   );
@@ -63,6 +63,7 @@ function StepCircle({ step, currentStep }) {
 export default function RegisterStepIndicator({
   currentStep,
   totalSteps = TOTAL_STEPS,
+  stepLabels = DEFAULT_STEP_LABELS,
 }) {
   const stepLabel = formatRegisterStepLabel(currentStep, totalSteps);
   const steps = Array.from({ length: totalSteps }, (_, index) => index + 1);
@@ -82,7 +83,11 @@ export default function RegisterStepIndicator({
                 <StepConnector completed={currentStep > step} />
               </div>
             )}
-            <StepCircle step={step} currentStep={currentStep} />
+            <StepCircle
+              step={step}
+              currentStep={currentStep}
+              stepLabels={stepLabels}
+            />
           </Fragment>
         ))}
       </div>

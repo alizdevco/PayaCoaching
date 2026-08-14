@@ -38,9 +38,11 @@ function PayamLogo() {
       <img
         src={logoImage}
         alt=""
-        className="h-8 w-8 shrink-0 rounded-xl object-contain"
+        className="h-7 w-7 shrink-0 rounded-lg object-contain"
       />
-      <span className="navbar-glass-text text-lg font-bold">پایا کوچینگ</span>
+      <span className="navbar-glass-text text-sm font-bold leading-none">
+        پایا کوچینگ
+      </span>
     </span>
   );
 }
@@ -289,7 +291,11 @@ export default function Navbar({ overlay = false }) {
             .join(" ")}
         >
           <div className="flex h-14 items-center gap-3 px-4 sm:gap-4 sm:px-6">
-            <Link to="/" onClick={closeMenu} className="shrink-0">
+            <Link
+              to="/"
+              onClick={closeMenu}
+              className="inline-flex shrink-0 items-center"
+            >
               <PayamLogo />
             </Link>
 

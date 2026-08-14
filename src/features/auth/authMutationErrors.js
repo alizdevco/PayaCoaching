@@ -43,7 +43,7 @@ function isAuthSessionError(error) {
 
 /**
  * @param {unknown} error
- * @param {"login" | "otp-send" | "otp-verify" | "profile" | "register"} context
+ * @param {"login" | "otp-send" | "otp-verify" | "profile" | "register" | "password-reset"} context
  */
 export function getAuthMutationErrorMessage(error, context) {
   if (isNetworkError(error)) {
@@ -71,6 +71,8 @@ export function getAuthMutationErrorMessage(error, context) {
       return "ذخیره پروفایل ناموفق بود. لطفاً دوباره تلاش کنید.";
     case "register":
       return "ثبت‌نام ناموفق بود. لطفاً دوباره تلاش کنید.";
+    case "password-reset":
+      return "تغییر رمز عبور ناموفق بود. لطفاً دوباره تلاش کنید.";
     default:
       return "عملیات ناموفق بود. لطفاً دوباره تلاش کنید.";
   }
