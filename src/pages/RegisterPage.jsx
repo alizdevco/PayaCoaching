@@ -32,62 +32,17 @@ import {
 import { dashboardPathForRole } from "../features/auth/authRoutes.js";
 import { validateIranianPhone } from "../features/auth/phoneValidation.js";
 import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors.js";
-
-const OTP_COOLDOWN_SECONDS = 120;
-const OTP_COOLDOWN_MS = OTP_COOLDOWN_SECONDS * 1000;
-const OTP_COOLDOWN_STORAGE_KEY = "otp_cooldown";
-const OTP_COOLDOWN_ERROR =
-  "کد تأیید قبلاً ارسال شده است. لطفاً ۲ دقیقه صبر کنید.";
-
-function readOtpCooldown() {
-  try {
-    const raw = localStorage.getItem(OTP_COOLDOWN_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.phone || typeof parsed.sentAt !== "number") return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeOtpCooldown(phone, sentAt = Date.now()) {
-  localStorage.setItem(
-    OTP_COOLDOWN_STORAGE_KEY,
-    JSON.stringify({ phone, sentAt }),
-  );
-}
-
-function clearOtpCooldown() {
-  localStorage.removeItem(OTP_COOLDOWN_STORAGE_KEY);
-}
-
-function getStoredCooldownSeconds(phoneNumber) {
-  const stored = readOtpCooldown();
-  if (!stored || stored.phone !== phoneNumber) return 0;
-  const remainingMs = OTP_COOLDOWN_MS - (Date.now() - stored.sentAt);
-  if (remainingMs <= 0) {
-    clearOtpCooldown();
-    return 0;
-  }
-  return Math.ceil(remainingMs / 1000);
-}
-
-function getRemainingCooldownSeconds(sentAtMap, phoneNumber) {
-  const storedRemaining = getStoredCooldownSeconds(phoneNumber);
-  if (storedRemaining > 0) return storedRemaining;
-
-  const sentAt = sentAtMap.get(phoneNumber);
-  if (!sentAt) return 0;
-  const remainingMs = OTP_COOLDOWN_MS - (Date.now() - sentAt);
-  return remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
-}
-
-function getOtpStepInitialCooldown(phoneNumber, fallbackSeconds) {
-  const storedRemaining = getStoredCooldownSeconds(phoneNumber);
-  if (storedRemaining > 0) return storedRemaining;
-  return fallbackSeconds > 0 ? fallbackSeconds : OTP_COOLDOWN_SECONDS;
-}
+import {
+  OTP_COOLDOWN_SECONDS,
+  OTP_COOLDOWN_MS,
+  OTP_COOLDOWN_ERROR,
+  clearOtpCooldown,
+  getOtpStepInitialCooldown,
+  getRemainingCooldownSeconds,
+  getStoredCooldownSeconds,
+  readOtpCooldown,
+  writeOtpCooldown,
+} from "../features/auth/otpCooldown.js";
 
 function pushRegisterHistory() {
   const current = window.history.state ?? {};

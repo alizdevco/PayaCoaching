@@ -1,6 +1,8 @@
 import { supabase } from "../../lib/supabase.js";
 import {
+  INCOMPLETE_REGISTRATION_MESSAGE,
   PHONE_ALREADY_REGISTERED_MESSAGE,
+  PHONE_NOT_REGISTERED_MESSAGE,
   toSupabasePhone,
   validateIranianPhone,
 } from "./phoneValidation.js";
@@ -12,6 +14,8 @@ export {
   toCanonicalPhoneDigits,
   phoneLookupVariants,
   PHONE_ALREADY_REGISTERED_MESSAGE,
+  PHONE_NOT_REGISTERED_MESSAGE,
+  INCOMPLETE_REGISTRATION_MESSAGE,
 } from "./phoneValidation.js";
 
 export function normalizePhone(rawPhone) {
@@ -257,4 +261,69 @@ export async function verifyOtp({ phone, code }) {
   }
 
   return { success: true, phone: normalizedPhone, session: data.session };
+}
+
+// Request a phone OTP for password reset (completed student profiles only).
+export async function sendPasswordResetOtp(phone) {
+  const result = validateIranianPhone(phone);
+  if (!result.valid) {
+    throw new Error(result.message);
+  }
+
+  const normalizedPhone = toSupabasePhone(result.phone);
+
+  const { data: canReset, error: resetError } = await supabase.rpc(
+    "student_can_reset_password",
+    { lookup_phone: result.phone },
+  );
+
+  if (resetError) {
+    const rpcMissing =
+      String(resetError.code ?? "") === "PGRST202" ||
+      String(resetError.message ?? "").includes("student_can_reset_password");
+    if (!rpcMissing) {
+      throw resetError;
+    }
+  } else if (canReset) {
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      phone: normalizedPhone,
+    });
+
+    if (otpError) {
+      throw otpError;
+    }
+
+    return { success: true, phone: result.phone };
+  }
+
+  const { data: profileExists, error: profileError } = await supabase.rpc(
+    "profile_exists_for_phone",
+    { lookup_phone: result.phone },
+  );
+
+  if (profileError) {
+    const rpcMissing =
+      String(profileError.code ?? "") === "PGRST202" ||
+      String(profileError.message ?? "").includes("profile_exists_for_phone");
+    if (!rpcMissing) {
+      throw profileError;
+    }
+    throw new Error(PHONE_NOT_REGISTERED_MESSAGE);
+  }
+
+  if (profileExists) {
+    throw new Error(INCOMPLETE_REGISTRATION_MESSAGE);
+  }
+
+  throw new Error(PHONE_NOT_REGISTERED_MESSAGE);
+}
+
+// Set a new password after OTP verification, then sign out.
+export async function resetPasswordAfterOtp(password) {
+  await setOwnPassword(password);
+  try {
+    await signOut();
+  } catch (error) {
+    console.error("[resetPasswordAfterOtp] signOut failed:", error?.message);
+  }
 }

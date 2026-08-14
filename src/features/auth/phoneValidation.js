@@ -75,3 +75,8 @@ export function phoneLookupVariants(rawPhone) {
 
 export const PHONE_ALREADY_REGISTERED_MESSAGE =
   "این شماره قبلاً ثبت‌نام شده است. برای ورود به صفحه لاگین مراجعه کنید.";
+
+export const PHONE_NOT_REGISTERED_MESSAGE = "این شماره در سیستم یافت نشد";
+
+export const INCOMPLETE_REGISTRATION_MESSAGE =
+  "ثبت‌نام شما تکمیل نشده. لطفاً از صفحه ثبت‌نام ادامه دهید.";

@@ -1,4 +1,5 @@
 import Navbar from "../components/Navbar.jsx";
+import BackToTopButton from "../components/BackToTopButton.jsx";
 import LandingFooter from "../components/LandingFooter.jsx";
 import HeroSection from "../components/landing/HeroSection.jsx";
 import AboutSection from "../components/landing/AboutSection.jsx";
@@ -22,6 +23,7 @@ export default function LandingPage() {
       </main>
 
       <LandingFooter />
+      <BackToTopButton />
     </div>
   );
 }

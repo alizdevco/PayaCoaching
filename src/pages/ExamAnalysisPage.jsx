@@ -46,9 +46,7 @@ function ExamNotFound() {
   );
 }
 
-function Breadcrumb({ examDate }) {
-  const formattedDate = examDate ? formatExamDate(examDate) : null;
-
+function Breadcrumb() {
   return (
     <nav
       aria-label="مسیر صفحه"
@@ -63,19 +61,11 @@ function Breadcrumb({ examDate }) {
         <li aria-hidden="true">
           <ChevronLeft size={14} className="text-[#78716C]" />
         </li>
-        <li>
+        <li className="font-medium text-[#1C1917]">
           <Link to="/#exam-analysis" className="hover:text-[#059669]">
             تحلیل آزمون
           </Link>
         </li>
-        {formattedDate && (
-          <>
-            <li aria-hidden="true">
-              <ChevronLeft size={14} className="text-[#78716C]" />
-            </li>
-            <li className="font-medium text-[#1C1917]">{formattedDate}</li>
-          </>
-        )}
       </ol>
     </nav>
   );
@@ -98,7 +88,7 @@ export default function ExamAnalysisPage() {
     <div dir="rtl" className="min-h-screen bg-white text-[#1C1917]">
       <Navbar />
 
-      <Breadcrumb examDate={exam?.exam_date ?? examDate} />
+      <Breadcrumb />
 
       <main>
         {isLoading && <ExamAnalysisSkeleton />}

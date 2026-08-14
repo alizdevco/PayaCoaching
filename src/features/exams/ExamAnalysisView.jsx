@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowLeft,
-  ArrowRight,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Download, FileText, Play } from "lucide-react";
 
-import Button from "../../components/Button.jsx";
 import { useExamList } from "./useExamList.js";
 import { formatExamDate } from "../../lib/persianDate.js";
+
+function MetaDot() {
+  return (
+    <span
+      className="inline-block h-[3px] w-[3px] shrink-0 rounded-full bg-[var(--color-text-muted)]"
+      aria-hidden="true"
+    />
+  );
+}
 
 function useScrollSpy(sectionIds) {
   const [activeId, setActiveId] = useState(sectionIds[0] ?? "");
@@ -59,15 +63,18 @@ function useScrollSpy(sectionIds) {
   return activeId;
 }
 
-function TocLink({ href, label, active }) {
+function TocLink({ href, label, active, compact = false }) {
   return (
     <a
       href={href}
       className={[
-        "block rounded-full px-4 py-2 text-sm transition-colors",
+        "text-sm transition-colors",
+        compact
+          ? "shrink-0 rounded-lg px-3 py-2"
+          : "block rounded-lg py-2.5 pe-3 ps-3",
         active
-          ? "bg-[#064E3B] font-medium text-white"
-          : "text-[#57534E] hover:bg-[#F7F5F0] hover:text-[#1C1917]",
+          ? "border-s-[3px] border-[var(--color-brand)] bg-[var(--color-accent-mint)]/25 font-semibold text-[var(--color-brand-dark)]"
+          : "border-s-[3px] border-transparent text-[var(--color-text-muted)] hover:bg-[var(--color-cream)] hover:text-[var(--color-text-secondary)]",
       ].join(" ")}
     >
       {label}
@@ -75,27 +82,50 @@ function TocLink({ href, label, active }) {
   );
 }
 
-function ExamMiniCard({ exam, currentDate }) {
-  const isCurrent = exam.exam_date === currentDate;
+function ContentSection({ id, icon: Icon, title, children, bodyClassName = "" }) {
+  return (
+    <section
+      id={id}
+      className="scroll-mt-nav overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)]"
+    >
+      <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-4 sm:px-6">
+        <Icon size={18} className="shrink-0 text-[var(--color-brand)]" aria-hidden="true" />
+        <h2 className="text-base font-bold text-[var(--color-text-primary)]">{title}</h2>
+      </div>
+      <div className={["px-5 py-5 sm:px-6 sm:py-6", bodyClassName].join(" ")}>
+        {children}
+      </div>
+    </section>
+  );
+}
 
+function OtherAnalysisRow({ exam }) {
   return (
     <Link
       to={`/exam-analysis/${exam.exam_date}`}
-      className={[
-        "flex min-w-[220px] shrink-0 flex-col gap-2 rounded-2xl border p-4 transition-shadow",
-        isCurrent
-          ? "border-[#059669] bg-[#F7F5F0]"
-          : "border-stone-200 bg-white hover:shadow-md",
-      ].join(" ")}
+      className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] px-4 py-3 transition-colors hover:bg-[var(--color-cream)]"
     >
-      <span className="text-xs font-semibold text-[#059669]">
-        {formatExamDate(exam.exam_date)}
-      </span>
-      <span className="line-clamp-2 text-sm font-bold text-[#1C1917]">
+      <span className="min-w-0 truncate text-sm font-medium text-[var(--color-text-primary)]">
         {exam.title}
+      </span>
+      <span className="shrink-0 text-xs font-semibold text-[var(--color-brand)]">
+        {formatExamDate(exam.exam_date)}
       </span>
     </Link>
   );
+}
+
+function downloadAllFiles(files) {
+  files.forEach((file) => {
+    const link = document.createElement("a");
+    link.href = file.public_url;
+    link.download = file.title || "file";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
 }
 
 export default function ExamAnalysisView({ exam }) {
@@ -111,25 +141,18 @@ export default function ExamAnalysisView({ exam }) {
     [exam.files],
   );
 
+  const downloadableFiles = useMemo(
+    () => [...pdfs, ...videos],
+    [pdfs, videos],
+  );
+
   const otherExams = useMemo(
-    () => allExams.filter((item) => item.exam_date !== exam.exam_date),
+    () =>
+      [...allExams]
+        .filter((item) => item.exam_date !== exam.exam_date)
+        .sort((a, b) => b.exam_date.localeCompare(a.exam_date)),
     [allExams, exam.exam_date],
   );
-
-  const sortedExams = useMemo(
-    () =>
-      [...allExams].sort((a, b) => b.exam_date.localeCompare(a.exam_date)),
-    [allExams],
-  );
-
-  const currentIndex = sortedExams.findIndex(
-    (item) => item.exam_date === exam.exam_date,
-  );
-  const newerExam = currentIndex > 0 ? sortedExams[currentIndex - 1] : null;
-  const olderExam =
-    currentIndex >= 0 && currentIndex < sortedExams.length - 1
-      ? sortedExams[currentIndex + 1]
-      : null;
 
   const sectionIds = useMemo(() => {
     const ids = ["content"];
@@ -154,164 +177,133 @@ export default function ExamAnalysisView({ exam }) {
     return null;
   }
 
-  return (
-    <div className="space-y-0">
-      {/* Compact hero header */}
-      <section className="relative overflow-hidden bg-[#F7F5F0] px-4 py-12 sm:px-6 sm:py-16">
-        <div
-          className="landing-blob start-[8%] top-[20%] h-10 w-32 opacity-20"
-          aria-hidden="true"
-        />
-        <div
-          className="landing-blob end-[12%] bottom-[20%] h-8 w-24 opacity-15"
-          aria-hidden="true"
-        />
+  const formattedDate = formatExamDate(exam.exam_date);
 
-        <div className="relative mx-auto max-w-6xl space-y-4">
-          <span className="inline-flex rounded-full bg-[#064E3B] px-4 py-1.5 text-sm font-medium text-[#6EE7B7]">
-            {formatExamDate(exam.exam_date)}
-          </span>
-          <h1 className="font-display text-3xl text-[#1C1917] sm:text-4xl">
-            {exam.title}
-          </h1>
-          {exam.description && (
-            <p className="max-w-3xl text-base leading-8 text-[#57534E]">
-              {exam.description}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2 pt-2">
-            <span className="rounded-full bg-white px-3 py-1 text-xs text-[#57534E]">
-              {videos.length} ویدیو
-            </span>
-            <span className="rounded-full bg-white px-3 py-1 text-xs text-[#57534E]">
-              {pdfs.length} PDF
-            </span>
-            <span className="rounded-full bg-[#6EE7B7]/30 px-3 py-1 text-xs text-[#064E3B]">
-              منتشر شده
-            </span>
+  return (
+    <div className="space-y-0 bg-[var(--color-cream)]">
+      {/* Hero card */}
+      <section className="px-4 pt-8 pb-6 sm:px-6 sm:pt-10">
+        <div className="mx-auto max-w-6xl rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <span className="inline-flex items-center rounded-full bg-[var(--color-accent-mint)]/40 px-3 py-1 text-xs font-semibold leading-normal text-[var(--color-brand-dark)]">
+                {formattedDate}
+              </span>
+
+              <div className="mt-5 space-y-3">
+                <h1 className="font-display text-3xl text-[var(--color-text-primary)] sm:text-4xl">
+                  {exam.title}
+                </h1>
+                {exam.description && (
+                  <p className="max-w-3xl text-base leading-8 text-[var(--color-text-secondary)]">
+                    {exam.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-x-3 text-xs text-[var(--color-text-muted)]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand)]"
+                    aria-hidden="true"
+                  />
+                  منتشر شده
+                </span>
+                {pdfs.length > 0 && (
+                  <>
+                    <MetaDot />
+                    <span>{pdfs.length} فایل PDF</span>
+                  </>
+                )}
+                {videos.length > 0 && (
+                  <>
+                    <MetaDot />
+                    <span>{videos.length} ویدیو</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {downloadableFiles.length > 0 && (
+              <button
+                type="button"
+                onClick={() => downloadAllFiles(downloadableFiles)}
+                className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-cream)]"
+              >
+                <Download size={16} aria-hidden="true" />
+                دانلود همه فایل‌ها
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Mobile tab bar */}
-      <div className="sticky top-20 z-30 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto">
+      {/* Mobile TOC */}
+      <div className="sticky top-20 z-30 border-b border-[var(--color-border)] bg-white/95 px-4 backdrop-blur-md lg:hidden">
+        <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto py-2">
           {tocItems.map((item) => (
-            <a
+            <TocLink
               key={item.id}
               href={`#${item.id}`}
-              className={[
-                "shrink-0 rounded-full px-4 py-2 text-sm transition-colors",
-                activeSection === item.id
-                  ? "bg-[#064E3B] font-medium text-white"
-                  : "bg-[#F7F5F0] text-[#57534E]",
-              ].join(" ")}
-            >
-              {item.label}
-            </a>
+              label={item.label}
+              active={activeSection === item.id}
+              compact
+            />
           ))}
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[240px_1fr] lg:gap-12">
-        {/* Sticky sidebar */}
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 pb-12 sm:px-6 lg:grid-cols-[220px_1fr] lg:gap-10">
+        {/* Desktop sidebar */}
         <aside className="hidden lg:block">
-          <div className="sticky top-20 space-y-8">
-            <nav className="space-y-1">
-              <p className="mb-3 text-xs font-semibold tracking-wide text-[#78716C]">
+          <div className="sticky top-24">
+            <nav className="rounded-2xl border border-[var(--color-border)] bg-white p-3 shadow-sm">
+              <p className="mb-2 px-2 text-xs font-semibold tracking-wide text-[var(--color-text-muted)]">
                 فهرست مطالب
               </p>
-              {tocItems.map((item) => (
-                <TocLink
-                  key={item.id}
-                  href={`#${item.id}`}
-                  label={item.label}
-                  active={activeSection === item.id}
-                />
-              ))}
-            </nav>
-
-            {otherExams.length > 0 && (
-              <div>
-                <p className="mb-3 text-xs font-semibold tracking-wide text-[#78716C]">
-                  آزمون‌های دیگر
-                </p>
-                <ul className="space-y-2">
-                  {otherExams.slice(0, 5).map((item) => (
-                    <li key={item.id}>
-                      <Link
-                        to={`/exam-analysis/${item.exam_date}`}
-                        className="block rounded-xl px-3 py-2 text-sm text-[#57534E] transition-colors hover:bg-[#F7F5F0] hover:text-[#1C1917]"
-                      >
-                        <span className="block text-xs font-medium text-[#059669]">
-                          {formatExamDate(item.exam_date)}
-                        </span>
-                        <span className="line-clamp-1 font-medium">{item.title}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/#exam-analysis"
-                  className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[#059669] hover:text-[#064E3B]"
-                >
-                  همه تحلیل‌ها
-                  <ArrowLeft size={14} aria-hidden="true" />
-                </Link>
+              <div className="space-y-0.5">
+                {tocItems.map((item) => (
+                  <TocLink
+                    key={item.id}
+                    href={`#${item.id}`}
+                    label={item.label}
+                    active={activeSection === item.id}
+                  />
+                ))}
               </div>
-            )}
+            </nav>
           </div>
         </aside>
 
         {/* Main content */}
-        <div className="min-w-0 space-y-0">
-          <section
-            id="content"
-            className="scroll-mt-nav rounded-2xl bg-white px-4 py-10 sm:px-8"
-          >
-            <div className="mb-6 flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#064E3B] text-[#6EE7B7]">
-                <FileText size={20} aria-hidden="true" />
-              </span>
-              <h2 className="text-xl font-bold text-[#1C1917]">متن تحلیل</h2>
+        <div className="min-w-0 space-y-6">
+          <ContentSection id="content" icon={FileText} title="متن تحلیل">
+            <div className="max-w-prose whitespace-pre-wrap text-base leading-8 text-[var(--color-text-primary)]">
+              {exam.content}
             </div>
-            <div className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm">
-              <div className="max-w-prose whitespace-pre-wrap text-base leading-8 text-[#1C1917]">
-                {exam.content}
-              </div>
-            </div>
-          </section>
+          </ContentSection>
 
           {videos.length > 0 && (
-            <section
-              id="videos"
-              className="scroll-mt-nav relative mt-4 overflow-hidden rounded-2xl bg-[#0A1A14] px-4 py-10 sm:px-8 sm:py-12"
-            >
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-48"
-                style={{
-                  background:
-                    "radial-gradient(ellipse at top, rgba(110,231,183,0.15), transparent 60%)",
-                }}
-                aria-hidden="true"
-              />
-              <h2 className="relative mb-8 text-xl font-bold text-white">
-                ویدیوها
-              </h2>
+            <ContentSection id="videos" icon={Play} title="ویدیوها" bodyClassName="space-y-4">
               <ul
                 className={[
-                  "relative grid gap-6",
+                  "grid gap-4",
                   videos.length > 1 ? "sm:grid-cols-2" : "",
                 ].join(" ")}
               >
                 {videos.map((file) => (
-                  <li key={file.id} className="space-y-3">
-                    <p className="font-medium text-white">{file.title}</p>
+                  <li
+                    key={file.id}
+                    className="overflow-hidden rounded-xl bg-[var(--color-brand-dark)] p-3 sm:p-4"
+                  >
+                    <p className="mb-2 truncate text-xs font-medium text-[var(--color-accent-light)]">
+                      {file.title}
+                    </p>
                     <video
                       controls
                       preload="metadata"
                       src={file.public_url}
-                      className="aspect-video w-full rounded-2xl bg-black"
+                      className="aspect-video w-full rounded-lg bg-black"
                       title={file.title}
                     >
                       مرورگر شما از پخش ویدیو پشتیبانی نمی‌کند.
@@ -319,114 +311,66 @@ export default function ExamAnalysisView({ exam }) {
                   </li>
                 ))}
               </ul>
-            </section>
+            </ContentSection>
           )}
 
           {pdfs.length > 0 && (
-            <section
-              id="pdfs"
-              className="scroll-mt-nav mt-4 rounded-2xl bg-[#F7F5F0] px-4 py-10 sm:px-8"
-            >
-              <h2 className="mb-6 text-xl font-bold text-[#1C1917]">
-                فایل‌های PDF
-              </h2>
-              <ul className="space-y-3">
+            <ContentSection id="pdfs" icon={FileText} title="فایل‌های PDF">
+              <ul className="space-y-2">
                 {pdfs.map((file) => (
-                  <li
-                    key={file.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#064E3B]/10 text-[#064E3B]">
-                        <FileText size={18} aria-hidden="true" />
-                      </span>
-                      <p className="min-w-0 font-medium text-[#1C1917]">
-                        {file.title}
-                      </p>
+                  <li key={file.id}>
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText
+                          size={16}
+                          className="shrink-0 text-[var(--color-brand)]"
+                          aria-hidden="true"
+                        />
+                        <span className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                          {file.title}
+                        </span>
+                      </div>
+                      <a
+                        href={file.public_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-sm text-[var(--color-brand)] hover:text-[var(--color-brand-dark)]"
+                      >
+                        مشاهده ›
+                      </a>
                     </div>
-                    <a
-                      href={file.public_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="dark" size="sm" className="rounded-full">
-                        مشاهده PDF
-                      </Button>
-                    </a>
                   </li>
                 ))}
               </ul>
-            </section>
+            </ContentSection>
           )}
         </div>
       </div>
 
-      {/* Bottom navigation */}
-      <section className="border-t border-stone-200 bg-white px-4 py-12 sm:px-6">
-        <div className="mx-auto max-w-6xl space-y-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-lg font-bold text-[#1C1917]">تحلیل‌های دیگر</h2>
-            <div className="flex gap-2">
-              {olderExam ? (
-                <Link to={`/exam-analysis/${olderExam.exam_date}`}>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="rounded-full"
-                  >
-                    <ArrowRight size={16} aria-hidden="true" />
-                    قبلی
-                  </Button>
-                </Link>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="rounded-full"
-                  disabled
-                >
-                  <ArrowRight size={16} aria-hidden="true" />
-                  قبلی
-                </Button>
-              )}
-              {newerExam ? (
-                <Link to={`/exam-analysis/${newerExam.exam_date}`}>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="rounded-full"
-                  >
-                    بعدی
-                    <ArrowLeft size={16} aria-hidden="true" />
-                  </Button>
-                </Link>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="rounded-full"
-                  disabled
-                >
-                  بعدی
-                  <ArrowLeft size={16} aria-hidden="true" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {otherExams.length > 0 && (
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {sortedExams.map((item) => (
-                <ExamMiniCard
-                  key={item.id}
-                  exam={item}
-                  currentDate={exam.exam_date}
-                />
+      {/* Other analyses */}
+      {otherExams.length > 0 && (
+        <section className="border-t border-[var(--color-border)] bg-white px-4 py-12 sm:px-6">
+          <div className="mx-auto max-w-6xl space-y-4">
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+              تحلیل‌های دیگر
+            </h2>
+            <ul className="space-y-2">
+              {otherExams.map((item) => (
+                <li key={item.id}>
+                  <OtherAnalysisRow exam={item} />
+                </li>
               ))}
-            </div>
-          )}
-        </div>
-      </section>
+            </ul>
+            <Link
+              to="/#exam-analysis"
+              className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-brand)] hover:text-[var(--color-brand-dark)]"
+            >
+              همه تحلیل‌ها
+              <ArrowLeft size={14} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-import heroImage from "../../assets/hero.png";
 import Button from "../Button.jsx";
+import HeroWaveBackground from "./HeroWaveBackground.jsx";
 
 export default function HeroSection() {
   return (
@@ -10,11 +10,7 @@ export default function HeroSection() {
       id="home"
       className="scroll-mt-nav relative h-[100svh] min-h-[100svh] w-full"
     >
-      <img
-        src={heroImage}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
+      <HeroWaveBackground />
       <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/50 to-black/30" />
 
       <div className="relative z-10 flex h-full min-h-[100svh] items-center">

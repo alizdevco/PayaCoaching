@@ -35,15 +35,6 @@ export default function CtaSection() {
               <ArrowLeft size={18} aria-hidden="true" />
             </Button>
           </Link>
-
-          <p>
-            <a
-              href="#home"
-              className="text-sm text-[#78716C] underline-offset-4 hover:text-[#1C1917] hover:underline"
-            >
-              بازگشت به بالا
-            </a>
-          </p>
         </div>
       </div>
     </section>
