@@ -4,6 +4,7 @@ import { Navigate, Routes, Route } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout.jsx";
 import StudentLayout from "./components/StudentLayout.jsx";
 import LoadingState from "./components/LoadingState.jsx";
+import ScrollToTop from "./components/ScrollToTop.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
@@ -45,8 +46,10 @@ const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 
 function App() {
   return (
-    <Suspense fallback={<LoadingState fullPage message="در حال بارگذاری..." />}>
-      <Routes>
+    <>
+      <ScrollToTop />
+      <Suspense fallback={<LoadingState fullPage message="در حال بارگذاری..." />}>
+        <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -103,6 +106,7 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </>
   );
 }
 

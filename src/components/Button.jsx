@@ -1,6 +1,8 @@
 const variantClasses = {
   primary:
-    "bg-emerald-500 text-white hover:bg-emerald-600 focus-visible:ring-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500",
+    "bg-[#064E3B] text-white hover:bg-[#059669] focus-visible:ring-[#059669] dark:bg-emerald-600 dark:hover:bg-emerald-500",
+  dark:
+    "bg-[#0A1A14] text-white hover:bg-[#064E3B] focus-visible:ring-[#064E3B]",
   secondary:
     "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
   danger:

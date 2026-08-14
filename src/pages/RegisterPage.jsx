@@ -7,7 +7,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate, Link } from "react-router-dom";
 
+import Button from "../components/Button.jsx";
 import StudentProfileFields from "../components/StudentProfileFields.jsx";
+import AuthPageLayout, {
+  AuthLoadingScreen,
+} from "../components/auth/AuthPageLayout.jsx";
+import RegisterStepIndicator, {
+  formatRegisterStepLabel,
+} from "../components/auth/RegisterStepIndicator.jsx";
+import {
+  authErrorClassName,
+  authInputClassName,
+  authLabelClassName,
+  authLinkClassName,
+  authMutedTextClassName,
+  authSuccessClassName,
+} from "../components/auth/authFormStyles.js";
 import { useAuth } from "../features/auth/useAuth.js";
 import {
   useSendOtp,
@@ -135,11 +150,7 @@ export default function RegisterPage() {
   }, [step]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-gray-500">
-        در حال بارگذاری...
-      </div>
-    );
+    return <AuthLoadingScreen />;
   }
 
   // If the page is refreshed after OTP verification but before the profile
@@ -162,78 +173,70 @@ export default function RegisterPage() {
   }
 
   return (
-    <div
-      dir="rtl"
-      className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8"
-    >
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-2xl font-bold text-gray-800">
-          ثبت‌نام
-        </h1>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          مرحله {effectiveStep} از ۳
-        </p>
-
-        {effectiveStep === 1 && (
-          <PhoneStep
-            onError={setServerError}
-            serverError={serverError}
-            getRemainingCooldownSeconds={getPhoneCooldownSeconds}
-            onOtpSent={recordOtpSent}
-            onDone={(normalizedPhone) => {
-              setPhone(normalizedPhone);
-              setServerError("");
-              setStep(2);
-            }}
-          />
-        )}
-
-        {effectiveStep === 2 && (
-          <OtpStep
-            phone={effectivePhone}
-            initialCooldownSeconds={getOtpStepInitialCooldown(
-              effectivePhone,
-              getPhoneCooldownSeconds(effectivePhone),
-            )}
-            onOtpSent={recordOtpSent}
-            onError={setServerError}
-            serverError={serverError}
-            onBack={() => {
-              setServerError("");
-              setStep(1);
-            }}
-            onDone={() => {
-              setServerError("");
-              setOtpVerified(true);
-              pushRegisterHistory();
-              setStep(3);
-            }}
-          />
-        )}
-
-        {effectiveStep === 3 && effectiveOtpVerified && (
-          <ProfileRegistrationStep
-            phone={effectivePhone}
-            onError={setServerError}
-            serverError={serverError}
-            onDone={async () => {
-              await refreshProfile();
-              navigate("/student/exams", { replace: true });
-            }}
-          />
-        )}
-
-        <p className="mt-6 text-center text-sm text-gray-600">
-          قبلاً ثبت‌نام کرده‌اید؟
-          <Link
-            to="/login"
-            className="font-medium text-blue-600 hover:underline"
-          >
+    <AuthPageLayout
+      title="ثبت‌نام"
+      subtitle={formatRegisterStepLabel(effectiveStep)}
+      maxWidth="lg"
+      footer={
+        <p className={`mt-6 text-center ${authMutedTextClassName}`}>
+          قبلاً ثبت‌نام کرده‌اید؟{" "}
+          <Link to="/login" className={authLinkClassName}>
             ورود
           </Link>
         </p>
-      </div>
-    </div>
+      }
+    >
+      <RegisterStepIndicator currentStep={effectiveStep} />
+
+      {effectiveStep === 1 && (
+        <PhoneStep
+          onError={setServerError}
+          serverError={serverError}
+          getRemainingCooldownSeconds={getPhoneCooldownSeconds}
+          onOtpSent={recordOtpSent}
+          onDone={(normalizedPhone) => {
+            setPhone(normalizedPhone);
+            setServerError("");
+            setStep(2);
+          }}
+        />
+      )}
+
+      {effectiveStep === 2 && (
+        <OtpStep
+          phone={effectivePhone}
+          initialCooldownSeconds={getOtpStepInitialCooldown(
+            effectivePhone,
+            getPhoneCooldownSeconds(effectivePhone),
+          )}
+          onOtpSent={recordOtpSent}
+          onError={setServerError}
+          serverError={serverError}
+          onBack={() => {
+            setServerError("");
+            setStep(1);
+          }}
+          onDone={() => {
+            setServerError("");
+            setOtpVerified(true);
+            pushRegisterHistory();
+            setStep(3);
+          }}
+        />
+      )}
+
+      {effectiveStep === 3 && effectiveOtpVerified && (
+        <ProfileRegistrationStep
+          phone={effectivePhone}
+          onError={setServerError}
+          serverError={serverError}
+          onDone={async () => {
+            await refreshProfile();
+            navigate("/student/exams", { replace: true });
+          }}
+        />
+      )}
+    </AuthPageLayout>
   );
 }
 
@@ -294,12 +297,10 @@ function PhoneStep({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          شماره موبایل
-        </label>
+        <label className={authLabelClassName}>شماره موبایل</label>
         <input
           type="tel"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+          className={authInputClassName}
           placeholder="09123456789"
           {...phoneField}
           onChange={(event) => {
@@ -308,19 +309,15 @@ function PhoneStep({
           }}
         />
         {errors.phone && (
-          <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+          <p className={`mt-1 ${authErrorClassName}`}>{errors.phone.message}</p>
         )}
       </div>
 
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
+      {serverError && <p className={authErrorClassName}>{serverError}</p>}
 
-      <button
-        type="submit"
-        disabled={sendOtp.isPending}
-        className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
-      >
+      <Button type="submit" disabled={sendOtp.isPending} className="w-full rounded-full">
         {sendOtp.isPending ? "در حال ارسال..." : "ارسال کد تأیید"}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -421,18 +418,17 @@ function OtpStep({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-      <p className="text-sm text-gray-600">
-        کد تأیید به شماره <span className="font-medium">{phone}</span> ارسال شد.
+      <p className={authMutedTextClassName}>
+        کد تأیید به شماره <span className="font-medium text-[#1C1917]">{phone}</span>{" "}
+        ارسال شد.
       </p>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          کد تأیید
-        </label>
+        <label className={authLabelClassName}>کد تأیید</label>
         <input
           type="text"
           inputMode="numeric"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-center tracking-widest outline-none focus:border-blue-500"
+          className={`${authInputClassName} text-center tracking-widest`}
           placeholder="- - - -"
           {...register("code", {
             required: "کد تأیید الزامی است.",
@@ -440,17 +436,15 @@ function OtpStep({
           })}
         />
         {errors.code && (
-          <p className="mt-1 text-sm text-red-600">{errors.code.message}</p>
+          <p className={`mt-1 ${authErrorClassName}`}>{errors.code.message}</p>
         )}
       </div>
 
-      {resendMessage && (
-        <p className="text-sm text-green-600">{resendMessage}</p>
-      )}
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
+      {resendMessage && <p className={authSuccessClassName}>{resendMessage}</p>}
+      {serverError && <p className={authErrorClassName}>{serverError}</p>}
 
       {timeLeft > 0 && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[#78716C]">
           ارسال مجدد کد تا {formatCountdown(timeLeft)} دیگر
         </p>
       )}
@@ -459,26 +453,27 @@ function OtpStep({
         type="button"
         onClick={handleResend}
         disabled={resendDisabled}
-        className="text-sm font-medium text-blue-600 hover:underline disabled:opacity-60"
+        className={`${authLinkClassName} text-sm disabled:opacity-60`}
       >
         {resendOtp.isPending ? "در حال ارسال دوباره..." : "ارسال دوباره کد"}
       </button>
 
       <div className="flex gap-2">
-        <button
+        <Button
           type="button"
+          variant="secondary"
           onClick={onBack}
-          className="w-1/3 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
+          className="w-1/3 rounded-full border-stone-300"
         >
           بازگشت
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           disabled={verifyOtp.isPending}
-          className="w-2/3 rounded-lg bg-blue-600 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+          className="w-2/3 rounded-full"
         >
           {verifyOtp.isPending ? "در حال بررسی..." : "تأیید کد"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -511,7 +506,7 @@ function ProfileRegistrationStep({ phone, onDone, onError, serverError }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-      <p className="text-sm text-gray-600">
+      <p className={authMutedTextClassName}>
         لطفاً اطلاعات پروفایل خود را تکمیل کنید.
       </p>
 
@@ -522,17 +517,18 @@ function ProfileRegistrationStep({ phone, onDone, onError, serverError }) {
         watch={watch}
         setValue={setValue}
         includePassword
+        variant="landing"
       />
 
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
+      {serverError && <p className={authErrorClassName}>{serverError}</p>}
 
-      <button
+      <Button
         type="submit"
         disabled={registerWithProfile.isPending}
-        className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+        className="w-full rounded-full"
       >
         {registerWithProfile.isPending ? "در حال ثبت‌نام..." : "تکمیل ثبت‌نام"}
-      </button>
+      </Button>
     </form>
   );
 }
