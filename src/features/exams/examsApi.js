@@ -231,23 +231,40 @@ function buildExamWritePayload(
   return payload;
 }
 
-export async function listExams({ publishedOnly = false } = {}) {
+export async function listExams({ publishedOnly = false, page, pageSize } = {}) {
+  const isPaginated = Number.isFinite(page) && Number.isFinite(pageSize);
+
   let query = supabase
     .from("exam_analyses")
-    .select(EXAM_LIST_SELECT)
+    .select(EXAM_LIST_SELECT, isPaginated ? { count: "exact" } : undefined)
     .order("exam_date", { ascending: false });
 
   if (publishedOnly) {
     query = query.eq("is_published", true);
   }
 
-  const { data, error } = await query;
+  if (isPaginated) {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error, count } = await query;
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []).map(mapExamListRow);
+  const items = (data ?? []).map(mapExamListRow);
+
+  if (isPaginated) {
+    return {
+      items,
+      totalCount: count ?? 0,
+    };
+  }
+
+  return items;
 }
 
 export async function getExamAnalysis(examDate) {

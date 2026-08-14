@@ -24,6 +24,15 @@ const fieldVariants = {
     error: "mt-1 text-sm text-red-600 dark:text-red-400",
     hint: "mt-1 text-sm text-amber-700 dark:text-amber-400",
   },
+  landing: {
+    label: "mb-1 block text-sm font-medium text-[#57534E]",
+    input:
+      "w-full rounded-xl border border-stone-300 px-3 py-2 outline-none transition-colors focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400",
+    readOnly:
+      "w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-[#57534E] outline-none",
+    error: "mt-1 text-sm text-red-600",
+    hint: "mt-1 text-sm text-amber-700",
+  },
 };
 
 export function getProfileFieldStyles(variant = "default") {
