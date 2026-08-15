@@ -8,14 +8,15 @@
 import { invokeEdgeFunction } from "./edgeFunctions.js";
 
 const MULTIPART_THRESHOLD_BYTES = 8 * 1024 * 1024;
-const PART_CONCURRENCY = 3;
+const PART_CONCURRENCY = 2;
 const MAX_ATTEMPTS_PER_PART = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 
 // Abort a request only after this long with no bytes moving. Unlike
 // xhr.timeout, which is a total budget, this resets on every progress event so
-// a slow-but-healthy upload is never cut off.
-const STALL_TIMEOUT_MS = 60_000;
+// a slow-but-healthy upload is never cut off. 8 MiB parts on slow links can
+// take several minutes between progress bursts.
+const STALL_TIMEOUT_MS = 3 * 60 * 1000;
 
 const STALL_MESSAGE = "آپلود به‌دلیل قطع ارتباط متوقف شد.";
 const RETRIES_EXHAUSTED_MESSAGE =
@@ -382,12 +383,10 @@ export async function uploadFileToStorage({
     examId,
   });
 
-  const upload = file.size > MULTIPART_THRESHOLD_BYTES
-    ? uploadInParts
-    : uploadInOnePut;
+  const useMultipart = file.size > MULTIPART_THRESHOLD_BYTES;
+  const upload = useMultipart ? uploadInParts : uploadInOnePut;
 
   const result = await upload({ scopeBody, file, mimeType, onProgress });
-
   onProgress?.(100);
   return result;
 }

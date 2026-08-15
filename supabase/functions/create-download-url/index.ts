@@ -1,11 +1,3 @@
-// create-download-url: presigned GET URL for a private file.
-//
-// Supports two request shapes:
-//   { content_id }       — student content row (admin or owning student)
-//   { online_exam_id }   — online exam PDF (admin or any student, after start_at)
-//
-// Link rows (file_type = 'link') store the URL directly in file_path, so no
-// presigning is needed — the stored URL is returned as-is.
 
 import { GetObjectCommand } from "npm:@aws-sdk/client-s3@3.726.0";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3.726.0";

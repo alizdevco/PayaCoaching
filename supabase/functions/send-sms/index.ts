@@ -64,9 +64,6 @@ Deno.serve(async (request) => {
     );
   }
 
-  // 1️⃣
-  console.log("✅ Hook verified at:", new Date().toISOString());
-
   const phone = event.user?.phone;
   const otp = event.sms?.otp;
 
@@ -79,9 +76,6 @@ Deno.serve(async (request) => {
 
   let smsResponse: Response;
   try {
-    // 2️⃣
-    console.log("📤 Calling sms.ir at:", new Date().toISOString());
-
     smsResponse = await fetch(SMS_IR_VERIFY_URL, {
       method: "POST",
       headers: {
@@ -102,9 +96,6 @@ Deno.serve(async (request) => {
       502,
     );
   }
-
-  // 3️⃣
-  console.log("📥 sms.ir responded at:", new Date().toISOString());
 
   const result = await smsResponse.json().catch(() => null);
 

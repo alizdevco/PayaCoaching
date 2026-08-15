@@ -206,24 +206,26 @@ export async function uploadSharedContent(
     throw new Error("عنوان الزامی است.");
   }
 
-  const mimeType = resolveMimeType(file, fileType);
-
-  const { objectKey, mimeType: signedMimeType } = await uploadFileToStorage({
-    scope: "shared",
-    fileType,
-    file,
-    mimeType,
-    onProgress,
-  });
-
   try {
-    return await invokeEdgeFunction("finalize-shared-upload", {
+    const mimeType = resolveMimeType(file, fileType);
+
+    const { objectKey, mimeType: signedMimeType } = await uploadFileToStorage({
+      scope: "shared",
+      fileType,
+      file,
+      mimeType,
+      onProgress,
+    });
+
+    const result = await invokeEdgeFunction("finalize-shared-upload", {
       object_key: objectKey,
       file_type: fileType,
       title: trimmedTitle,
       mime_type: signedMimeType,
       file_size: file.size,
     });
+
+    return result;
   } catch (error) {
     const detail =
       error instanceof Error && error.message
@@ -298,6 +300,54 @@ export async function addLink(studentId, title, url) {
   }
 
   return data;
+}
+
+export async function uploadSharedLink(title, url) {
+  const trimmedTitle = String(title ?? "").trim();
+  const trimmedUrl = String(url ?? "").trim();
+
+  if (!trimmedTitle) {
+    throw new Error("عنوان الزامی است.");
+  }
+  if (!trimmedUrl) {
+    throw new Error("آدرس لینک الزامی است.");
+  }
+
+  const uploadedBy = await getCurrentUserId();
+
+  const { data: students, error: studentsError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("role", "student");
+
+  if (studentsError) {
+    throw studentsError;
+  }
+
+  const studentIds = (students ?? []).map((student) => student.id);
+  if (studentIds.length === 0) {
+    throw new Error("دانش‌آموزی برای ثبت محتوا وجود ندارد.");
+  }
+
+  const rows = studentIds.map((studentId) => ({
+    student_id: studentId,
+    title: trimmedTitle,
+    file_type: "link",
+    file_path: trimmedUrl,
+    mime_type: null,
+    file_size: null,
+    uploaded_by: uploadedBy,
+  }));
+
+  const { error: insertError, count } = await supabase
+    .from("student_contents")
+    .insert(rows, { count: "exact" });
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  return { student_count: count ?? rows.length };
 }
 
 export async function getDownloadUrl(contentId) {

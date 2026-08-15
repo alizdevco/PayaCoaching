@@ -134,51 +134,13 @@ Deno.serve(async (request) => {
 
   const tmpPath = `/tmp/${crypto.randomUUID()}.upload`;
 
-  // #region agent log
-  const writeStartedAt = Date.now();
-  console.error(JSON.stringify({
-    sessionId: "052fb0",
-    hypothesisId: "H1-backend-disk-quota",
-    location: "upload-storage-object/index.ts:135",
-    message: "invocation received, starting writeFile to /tmp",
-    data: { contentLength, mimeType, fileType },
-    timestamp: writeStartedAt,
-  }));
-  // #endregion agent log
-
   try {
     await Deno.writeFile(tmpPath, request.body);
-
-    // #region agent log
-    console.error(JSON.stringify({
-      sessionId: "052fb0",
-      hypothesisId: "H1-backend-disk-quota",
-      location: "upload-storage-object/index.ts:137",
-      message: "writeFile to /tmp succeeded",
-      data: { contentLength, elapsedMs: Date.now() - writeStartedAt },
-      timestamp: Date.now(),
-    }));
-    // #endregion agent log
   } catch (error) {
     console.error(
       "upload-storage-object failed to buffer upload to disk:",
       (error as Error).message,
     );
-
-    // #region agent log
-    console.error(JSON.stringify({
-      sessionId: "052fb0",
-      hypothesisId: "H1-backend-disk-quota",
-      location: "upload-storage-object/index.ts:141",
-      message: "writeFile to /tmp FAILED",
-      data: {
-        contentLength,
-        elapsedMs: Date.now() - writeStartedAt,
-        errorMessage: (error as Error).message,
-      },
-      timestamp: Date.now(),
-    }));
-    // #endregion agent log
 
     return jsonResponse({ error: "Could not receive the uploaded file" }, 500);
   }

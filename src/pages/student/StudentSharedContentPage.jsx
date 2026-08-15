@@ -7,6 +7,7 @@ import {
   Video,
 } from "lucide-react";
 
+import Card from "../../components/Card.jsx";
 import ErrorState from "../../components/ErrorState.jsx";
 import LoadingState from "../../components/LoadingState.jsx";
 import { useContentSignedUrl } from "../../features/content/useContentSignedUrl.js";
@@ -20,6 +21,14 @@ const FILE_TYPE_LABELS = {
 };
 
 const SHARED_CONTENT_TYPES = new Set(["video", "pdf", "image", "link"]);
+
+const TYPE_FILTERS = [
+  { value: "all", label: "همه" },
+  { value: "link", label: "لینک", icon: Link2 },
+  { value: "video", label: "ویدیو", icon: Video },
+  { value: "pdf", label: "PDF", icon: FileText },
+  { value: "image", label: "تصویر", icon: ImageIcon },
+];
 
 function FileTypeBadge({ fileType }) {
   const icons = {
@@ -38,6 +47,62 @@ function FileTypeBadge({ fileType }) {
   );
 }
 
+function ContentTypeFilters({ value, onChange }) {
+  return (
+    <div
+      className="flex flex-wrap gap-2"
+      role="group"
+      aria-label="فیلتر نوع محتوا"
+    >
+      {TYPE_FILTERS.map((filter) => {
+        const Icon = filter.icon;
+        const isActive = value === filter.value;
+
+        return (
+          <button
+            key={filter.value}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            data-testid={`content-filter-${filter.value}`}
+            className={[
+              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+              isActive
+                ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/60",
+            ].join(" ")}
+          >
+            {Icon && <Icon size={14} aria-hidden="true" />}
+            {filter.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContentCard({ item, onOpen, disabled }) {
+  return (
+    <Card className="admin-stagger-in flex flex-col gap-3 transition-shadow hover:shadow-md">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold text-slate-800 dark:text-white">
+          {item.title}
+        </h2>
+        <FileTypeBadge fileType={item.file_type} />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onOpen(item.id)}
+        disabled={disabled}
+        className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+      >
+        <ExternalLink size={14} aria-hidden="true" />
+        {item.file_type === "link" ? "باز کردن لینک" : "مشاهده / دانلود"}
+      </button>
+    </Card>
+  );
+}
+
 function getMutationErrorMessage(error, fallback) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -48,6 +113,7 @@ function getMutationErrorMessage(error, fallback) {
 export default function StudentSharedContentPage() {
   const [openingContentId, setOpeningContentId] = useState(null);
   const [openError, setOpenError] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   const { data: contents = [], isLoading, isError, refetch } =
     useOwnStudentContent();
@@ -56,6 +122,13 @@ export default function StudentSharedContentPage() {
     () => contents.filter((item) => SHARED_CONTENT_TYPES.has(item.file_type)),
     [contents],
   );
+
+  const filteredItems = useMemo(() => {
+    if (typeFilter === "all") {
+      return sharedItems;
+    }
+    return sharedItems.filter((item) => item.file_type === typeFilter);
+  }, [sharedItems, typeFilter]);
 
   const {
     data: downloadUrl,
@@ -116,36 +189,31 @@ export default function StudentSharedContentPage() {
         />
       )}
 
+      {!isLoading && !isError && sharedItems.length > 0 && (
+        <ContentTypeFilters value={typeFilter} onChange={setTypeFilter} />
+      )}
+
       {!isLoading && !isError && sharedItems.length === 0 && (
         <p className="rounded-xl border border-dashed border-slate-200 px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
           هنوز محتوایی برای شما ثبت نشده است.
         </p>
       )}
 
-      {!isLoading && !isError && sharedItems.length > 0 && (
-        <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-          {sharedItems.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-start justify-between gap-3 px-4 py-3"
-            >
-              <button
-                type="button"
-                onClick={() => handleOpenContent(item.id)}
+      {!isLoading && !isError && sharedItems.length > 0 && filteredItems.length === 0 && (
+        <p className="rounded-xl border border-dashed border-slate-200 px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          محتوایی با این فیلتر یافت نشد.
+        </p>
+      )}
+
+      {!isLoading && !isError && filteredItems.length > 0 && (
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredItems.map((item) => (
+            <li key={item.id}>
+              <ContentCard
+                item={item}
+                onOpen={handleOpenContent}
                 disabled={isOpening}
-                className="min-w-0 flex-1 rounded-lg text-right transition-colors hover:bg-slate-50 disabled:opacity-60 dark:hover:bg-slate-800/60"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-slate-800 dark:text-white">
-                    {item.title}
-                  </p>
-                  <FileTypeBadge fileType={item.file_type} />
-                </div>
-                <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                  <ExternalLink size={12} aria-hidden="true" />
-                  {item.file_type === "link" ? "باز کردن لینک" : "مشاهده / دانلود"}
-                </p>
-              </button>
+              />
             </li>
           ))}
         </ul>

@@ -7,6 +7,7 @@ import Card from "../Card.jsx";
 import ErrorState from "../ErrorState.jsx";
 import LoadingState from "../LoadingState.jsx";
 import { useExamList } from "../../features/exams/useExamList.js";
+import { useIntersectionMount } from "../../hooks/useIntersectionMount.js";
 import { formatExamDate, toPersianDigits } from "../../lib/persianDate.js";
 
 const PAGE_SIZE = 1;
@@ -52,7 +53,7 @@ function ExamCard({ exam }) {
   );
 }
 
-export default function ExamAnalysisSection() {
+function ExamAnalysisContent() {
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useExamList({
     publishedOnly: true,
@@ -64,8 +65,79 @@ export default function ExamAnalysisSection() {
   const totalCount = data?.totalCount ?? 0;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0;
 
+  if (isLoading) {
+    return <LoadingState message="در حال بارگذاری تحلیل‌های آزمون..." />;
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        message={error?.message ?? "خطا در بارگذاری تحلیل‌های آزمون."}
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  if (totalCount === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-stone-200 bg-[#F7F5F0] px-6 py-12 text-center text-sm text-[#57534E]">
+        هنوز تحلیلی منتشر نشده است.
+      </p>
+    );
+  }
+
   return (
-    <section id="exam-analysis" className="scroll-mt-nav bg-white py-20 sm:py-28">
+    <>
+      <ul className="grid gap-4 lg:grid-cols-1">
+        {exams.map((exam) => (
+          <li key={exam.id}>
+            <ExamCard exam={exam} />
+          </li>
+        ))}
+      </ul>
+
+      {totalPages > 1 && (
+        <div className="mt-6 flex flex-col items-center gap-4">
+          <p className="text-sm text-[#57534E]">
+            صفحه {toPersianDigits(page)} از {toPersianDigits(totalPages)}
+          </p>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full"
+              disabled={page <= 1}
+              onClick={() => setPage((current) => current - 1)}
+            >
+              <ArrowRight size={16} aria-hidden="true" />
+              قبلی
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full"
+              disabled={page >= totalPages}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              بعدی
+              <ArrowLeft size={16} aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function ExamAnalysisSection() {
+  const { ref, isMounted } = useIntersectionMount({ rootMargin: "200px 0px" });
+
+  return (
+    <section
+      id="exam-analysis"
+      ref={ref}
+      className="scroll-mt-nav bg-white py-20 sm:py-28"
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="space-y-4 lg:sticky lg:top-28">
@@ -78,66 +150,7 @@ export default function ExamAnalysisSection() {
             </p>
           </div>
 
-          <div>
-            {isLoading && (
-              <LoadingState message="در حال بارگذاری تحلیل‌های آزمون..." />
-            )}
-
-            {!isLoading && isError && (
-              <ErrorState
-                message={error?.message ?? "خطا در بارگذاری تحلیل‌های آزمون."}
-                onRetry={() => refetch()}
-              />
-            )}
-
-            {!isLoading && !isError && totalCount === 0 && (
-              <p className="rounded-2xl border border-dashed border-stone-200 bg-[#F7F5F0] px-6 py-12 text-center text-sm text-[#57534E]">
-                هنوز تحلیلی منتشر نشده است.
-              </p>
-            )}
-
-            {!isLoading && !isError && exams.length > 0 && (
-              <>
-                <ul className="grid gap-4 lg:grid-cols-1">
-                  {exams.map((exam) => (
-                    <li key={exam.id}>
-                      <ExamCard exam={exam} />
-                    </li>
-                  ))}
-                </ul>
-
-                {totalPages > 1 && (
-                  <div className="mt-6 flex flex-col items-center gap-4">
-                    <p className="text-sm text-[#57534E]">
-                      صفحه {toPersianDigits(page)} از {toPersianDigits(totalPages)}
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="rounded-full"
-                        disabled={page <= 1}
-                        onClick={() => setPage((current) => current - 1)}
-                      >
-                        <ArrowRight size={16} aria-hidden="true" />
-                        قبلی
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="rounded-full"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage((current) => current + 1)}
-                      >
-                        بعدی
-                        <ArrowLeft size={16} aria-hidden="true" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <div>{isMounted ? <ExamAnalysisContent /> : null}</div>
         </div>
       </div>
     </section>

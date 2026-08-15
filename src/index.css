@@ -394,6 +394,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .landing-section-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
   .hero-wave-path,
   .hero-wave-path-reverse {
     animation: none;
@@ -465,3 +471,5 @@ body {
     padding-inline: 5rem; /* 80px */
   }
 }
+
+@import "./app-fonts.css";

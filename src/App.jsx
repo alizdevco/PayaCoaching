@@ -6,8 +6,8 @@ import StudentLayout from "./components/StudentLayout.jsx";
 import LoadingState from "./components/LoadingState.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import LandingPage from "./pages/LandingPage.jsx";
 
-const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage.jsx"));
 const CompleteProfilePage = lazy(() => import("./pages/CompleteProfilePage.jsx"));

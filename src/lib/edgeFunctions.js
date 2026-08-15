@@ -53,13 +53,44 @@ async function hasLiveSession() {
   return !error;
 }
 
-export async function invokeEdgeFunction(name, body) {
-  const { data, error } = await supabase.functions.invoke(name, { body });
+/** Refresh the access token before long uploads outlive it. */
+async function ensureFreshSession() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.expires_at) {
+    return;
+  }
+
+  const expiresAtMs = session.expires_at * 1000;
+  const refreshBufferMs = 5 * 60 * 1000;
+
+  if (Date.now() >= expiresAtMs - refreshBufferMs) {
+    await supabase.auth.refreshSession();
+  }
+}
+
+async function invokeOnce(name, body) {
+  return supabase.functions.invoke(name, { body });
+}
+
+export async function invokeEdgeFunction(name, body, { retried = false } = {}) {
+  await ensureFreshSession();
+
+  const { data, error } = await invokeOnce(name, body);
 
   if (error) {
     const response = error.context;
     const status = typeof response?.status === "number" ? response.status : null;
     const errorBody = response ? await readErrorBody(response) : null;
+
+    if (status === 401 && !retried) {
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError) {
+        return invokeEdgeFunction(name, body, { retried: true });
+      }
+    }
 
     if (status === 401 && !(await hasLiveSession())) {
       // Drop the dead session locally so the route guards ask for a new login
