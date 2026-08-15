@@ -1,15 +1,19 @@
-import { Mail, Phone } from "lucide-react";
+import { Phone, Send } from "lucide-react";
+
+import { toPersianDigits } from "../../lib/persianDate.js";
 
 const contactItems = [
   {
     icon: Phone,
     label: "تلفن",
-    value: "۰۲۱-۱۲۳۴۵۶۷۸",
+    value: toPersianDigits("09309092465"),
+    href: "tel:09309092465",
   },
   {
-    icon: Mail,
-    label: "ایمیل",
-    value: "info@payamcoaching.ir",
+    icon: Send,
+    label: "تلگرام",
+    value: "paya_coaching@",
+    href: "https://t.me/paya_coaching",
   },
 ];
 
@@ -34,7 +38,14 @@ export default function ContactSection() {
                 <item.icon size={22} aria-hidden="true" />
               </span>
               <p className="text-sm font-medium text-[#78716C]">{item.label}</p>
-              <p className="text-base font-semibold text-[#1C1917]">{item.value}</p>
+              <a
+                href={item.href}
+                target={item.href.startsWith("http") ? "_blank" : undefined}
+                rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                className="text-base font-semibold text-[#1C1917] underline-offset-4 transition-colors hover:text-[#064E3B] hover:underline"
+              >
+                {item.value}
+              </a>
             </li>
           ))}
         </ul>

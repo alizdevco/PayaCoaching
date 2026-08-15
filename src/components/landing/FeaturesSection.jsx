@@ -49,7 +49,7 @@ export default function FeaturesSection() {
             ساخته‌شده برای اعتماد شما
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-white/60">
-            فناوری امن و تخصص اختصاصی برای آموزش
+            فناوری امن و تخصصی اختصاصی برای آموزش
           </p>
         </div>
 
