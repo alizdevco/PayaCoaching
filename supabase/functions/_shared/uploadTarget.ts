@@ -183,7 +183,7 @@ export async function resolveUploadTarget(
     }
   }
 
-  return {
+  const result = {
     scope,
     fileType,
     mimeType: mime_type,
@@ -194,6 +194,8 @@ export async function resolveUploadTarget(
     examDate: scope === "exam" ? exam_date as string : undefined,
     examId: scope === "online-exam" ? exam_id as string : undefined,
   };
+
+  return result;
 }
 
 export function buildObjectKey(target: UploadTarget): string {

@@ -1,6 +1,6 @@
 // Student registration in 3 steps on one page:
-//   1. Phone number  -> request OTP (mocked)
-//   2. OTP code      -> verify OTP (mocked)
+//   1. Phone number  -> request OTP
+//   2. OTP code      -> verify OTP
 //   3. Profile form  -> create account + save full profile (only after OTP)
 
 import { useState, useEffect, useRef, useCallback } from "react";

@@ -141,18 +141,6 @@ Deno.serve(async (request) => {
       partSize: 5 * 1024 * 1024,
     });
     await upload.done();
-
-    // #region agent log
-    console.error(JSON.stringify({
-      sessionId: "052fb0",
-      runId: "post-fix",
-      hypothesisId: "fix-verification",
-      location: "upload-exam-file/index.ts:direct-stream-upload",
-      message: "direct stream-to-S3 upload succeeded, no /tmp write attempted",
-      data: { contentLength, objectKey },
-      timestamp: Date.now(),
-    }));
-    // #endregion agent log
   } catch (error) {
     const storageError = formatStorageError(error);
     console.error(
@@ -161,22 +149,6 @@ Deno.serve(async (request) => {
       storageError.message,
       storageError.status,
     );
-
-    // #region agent log
-    console.error(JSON.stringify({
-      sessionId: "052fb0",
-      runId: "post-fix",
-      hypothesisId: "fix-verification",
-      location: "upload-exam-file/index.ts:direct-stream-upload",
-      message: "direct stream-to-S3 upload failed",
-      data: {
-        contentLength,
-        errorName: storageError.name,
-        errorMessage: storageError.message,
-      },
-      timestamp: Date.now(),
-    }));
-    // #endregion agent log
 
     return jsonResponse(
       {

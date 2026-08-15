@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { CheckCircle2, FileText, Image as ImageIcon, Upload, Video } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Image as ImageIcon,
+  Link2,
+  Upload,
+  Video,
+} from "lucide-react";
 
 import Card from "../../components/Card.jsx";
 import Button from "../../components/Button.jsx";
@@ -42,6 +49,12 @@ const CONTENT_TYPES = [
     hint: "فقط PDF، حداکثر ۵۰ مگابایت",
     mimes: ["application/pdf"],
   },
+  {
+    value: "link",
+    label: "لینک",
+    icon: Link2,
+    isLink: true,
+  },
 ];
 
 function getMutationErrorMessage(error, fallback) {
@@ -72,6 +85,7 @@ export default function SharedContentPage() {
   const [contentType, setContentType] = useState("video");
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
+  const [url, setUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -85,8 +99,11 @@ export default function SharedContentPage() {
   function resetForm() {
     setTitle("");
     setFile(null);
+    setUrl("");
     setUploadProgress(0);
   }
+
+  const isLinkType = selectedType?.isLink === true;
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -97,13 +114,21 @@ export default function SharedContentPage() {
       setFormError("عنوان الزامی است.");
       return;
     }
-    if (!file) {
-      setFormError("فایل را انتخاب کنید.");
-      return;
-    }
-    if (selectedType && !selectedType.mimes.includes(file.type)) {
-      setFormError(`فرمت فایل با نوع محتوای «${selectedType.label}» مطابقت ندارد.`);
-      return;
+    if (isLinkType) {
+      const trimmedUrl = url.trim();
+      if (!trimmedUrl) {
+        setFormError("آدرس لینک الزامی است.");
+        return;
+      }
+    } else {
+      if (!file) {
+        setFormError("فایل را انتخاب کنید.");
+        return;
+      }
+      if (selectedType && !selectedType.mimes.includes(file.type)) {
+        setFormError(`فرمت فایل با نوع محتوای «${selectedType.label}» مطابقت ندارد.`);
+        return;
+      }
     }
 
     uploadSharedContent.mutate(
@@ -111,12 +136,15 @@ export default function SharedContentPage() {
         fileType: contentType,
         file,
         title: title.trim(),
+        url: url.trim(),
         onProgress: setUploadProgress,
       },
       {
         onSuccess: (data) => {
           setSuccessMessage(
-            `فایل با موفقیت آپلود شد و برای ${data?.student_count ?? 0} دانش‌آموز ثبت شد.`,
+            isLinkType
+              ? `لینک با موفقیت ثبت شد و برای ${data?.student_count ?? 0} دانش‌آموز ارسال شد.`
+              : `فایل با موفقیت آپلود شد و برای ${data?.student_count ?? 0} دانش‌آموز ثبت شد.`,
           );
           resetForm();
         },
@@ -137,7 +165,7 @@ export default function SharedContentPage() {
           محتوای مشترک
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          یک فایل آپلود کنید تا برای همه دانش‌آموزان به‌صورت یک‌جا ثبت شود
+          فایل یا لینک را برای همه دانش‌آموزان به‌صورت یک‌جا ثبت کنید
         </p>
       </div>
 
@@ -148,7 +176,7 @@ export default function SharedContentPage() {
               نوع محتوا
             </p>
             <div
-              className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
               role="group"
               aria-labelledby="shared-content-type-label"
             >
@@ -163,6 +191,7 @@ export default function SharedContentPage() {
                     onClick={() => {
                       setContentType(type.value);
                       setFile(null);
+                      setUrl("");
                     }}
                     className={[
                       "flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-sm font-medium transition-colors",
@@ -194,27 +223,45 @@ export default function SharedContentPage() {
             />
           </div>
 
-          <div>
-            <label className={adminFieldStyles.label} htmlFor="shared-content-file">
-              فایل
-            </label>
-            <input
-              id="shared-content-file"
-              key={contentType}
-              type="file"
-              accept={selectedType?.accept}
-              data-testid="shared-content-file"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              className={adminFieldStyles.input}
-            />
-            {selectedType && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {selectedType.hint}
-              </p>
-            )}
-          </div>
+          {isLinkType ? (
+            <div>
+              <label className={adminFieldStyles.label} htmlFor="shared-content-url">
+                آدرس لینک
+              </label>
+              <input
+                id="shared-content-url"
+                type="url"
+                dir="ltr"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                data-testid="shared-content-url"
+                className={adminFieldStyles.input}
+                placeholder="https://example.com"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className={adminFieldStyles.label} htmlFor="shared-content-file">
+                فایل
+              </label>
+              <input
+                id="shared-content-file"
+                key={contentType}
+                type="file"
+                accept={selectedType?.accept}
+                data-testid="shared-content-file"
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                className={adminFieldStyles.input}
+              />
+              {selectedType?.hint && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {selectedType.hint}
+                </p>
+              )}
+            </div>
+          )}
 
-          {uploadSharedContent.isPending && (
+          {!isLinkType && uploadSharedContent.isPending && (
             <UploadProgressBar progress={uploadProgress} />
           )}
 
@@ -234,7 +281,7 @@ export default function SharedContentPage() {
 
           <Button type="submit" isLoading={uploadSharedContent.isPending} data-testid="shared-content-submit">
             <Upload size={16} aria-hidden="true" />
-            آپلود و ارسال به همه
+            {isLinkType ? "ثبت و ارسال به همه" : "آپلود و ارسال به همه"}
           </Button>
         </form>
       </Card>

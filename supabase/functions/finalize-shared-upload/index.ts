@@ -19,7 +19,9 @@ Deno.serve(async (request) => {
 
   const supabase = createServiceClient();
   const caller = await getCaller(request, supabase);
-  if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!caller) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
   if (caller.role !== "admin") {
     return jsonResponse(
       { error: "Only admins can finalize shared content uploads" },

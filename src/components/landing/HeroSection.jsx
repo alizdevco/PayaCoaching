@@ -15,7 +15,7 @@ export default function HeroSection() {
 
       <div className="relative z-10 flex h-full min-h-[100svh] items-center">
         <div className="landing-shell w-full py-24 pt-28 sm:py-28 lg:py-32">
-          <div className="landing-section-enter max-w-xl space-y-6">
+          <div className="max-w-xl space-y-6">
             <h1 className="font-display text-4xl leading-tight text-white sm:text-5xl lg:text-6xl">
               <span className="block">مشاوره تحصیلی</span>
               <span className="mt-1 block text-[#6EE7B7]">با پایا کوچینگ</span>

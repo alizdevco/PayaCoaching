@@ -1,3 +1,4 @@
+import { invokeEdgeFunction } from "../../lib/edgeFunctions.js";
 import { supabase } from "../../lib/supabase.js";
 
 const STUDENT_LIST_COLUMNS =
@@ -87,13 +88,5 @@ export async function updateStudentProfile(studentId, data) {
 }
 
 export async function deleteStudent(studentId) {
-  const { error } = await supabase
-    .from("profiles")
-    .delete()
-    .eq("id", studentId)
-    .eq("role", "student");
-
-  if (error) {
-    throw error;
-  }
+  await invokeEdgeFunction("delete-student", { student_id: studentId });
 }

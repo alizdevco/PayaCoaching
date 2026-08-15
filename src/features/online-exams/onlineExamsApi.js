@@ -368,94 +368,21 @@ export async function getMyOnlineExamAttempt(examId) {
   return data;
 }
 
-async function setAttemptStartedAt(attemptId) {
-  const { data, error } = await supabase
-    .from("online_exam_attempts")
-    .update({ started_at: new Date().toISOString() })
-    .eq("id", attemptId)
-    .is("started_at", null)
-    .select(ATTEMPT_COLUMNS)
-    .maybeSingle();
+/** Starts (or resumes) the student's attempt; started_at is set server-side only. */
+export async function startOnlineExamAttempt(examId) {
+  const { data, error } = await supabase.rpc("start_online_exam_attempt", {
+    p_exam_id: examId,
+  });
 
   if (error) {
     throw error;
   }
 
-  if (data) {
-    return data;
-  }
-
-  const { data: existing, error: fetchError } = await supabase
-    .from("online_exam_attempts")
-    .select(ATTEMPT_COLUMNS)
-    .eq("id", attemptId)
-    .single();
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  return existing;
-}
-
-export async function ensureAttemptStarted(examId) {
-  const userId = await getCurrentUserId();
-
-  const { data: existing, error: fetchError } = await supabase
-    .from("online_exam_attempts")
-    .select(ATTEMPT_COLUMNS)
-    .eq("exam_id", examId)
-    .eq("student_id", userId)
-    .maybeSingle();
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  if (existing) {
-    if (existing.started_at) {
-      return existing;
-    }
-    return setAttemptStartedAt(existing.id);
-  }
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("online_exam_attempts")
-    .insert({
-      exam_id: examId,
-      student_id: userId,
-    })
-    .select(ATTEMPT_COLUMNS)
-    .single();
-
-  if (insertError) {
-    if (insertError.code === "23505") {
-      const { data: raced, error: raceError } = await supabase
-        .from("online_exam_attempts")
-        .select(ATTEMPT_COLUMNS)
-        .eq("exam_id", examId)
-        .eq("student_id", userId)
-        .single();
-
-      if (raceError) {
-        throw raceError;
-      }
-
-      if (raced.started_at) {
-        return raced;
-      }
-
-      return setAttemptStartedAt(raced.id);
-    }
-
-    throw insertError;
-  }
-
-  return setAttemptStartedAt(inserted.id);
+  return data;
 }
 
 export async function startOnlineExamDownload(examId) {
-  const attempt = await ensureAttemptStarted(examId);
+  const attempt = await startOnlineExamAttempt(examId);
   const downloadUrl = await getOnlineExamDownloadUrl(examId);
 
   return { attempt, downloadUrl };

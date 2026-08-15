@@ -37,15 +37,6 @@ export default function AuthPageLayout({
 
   return (
     <div dir="rtl" className="relative min-h-screen bg-[#F7F5F0] text-[#1C1917]">
-      <div
-        className="landing-blob start-[8%] top-[12%] h-32 w-48 opacity-20"
-        aria-hidden="true"
-      />
-      <div
-        className="landing-blob end-[10%] bottom-[18%] h-24 w-56 opacity-15"
-        aria-hidden="true"
-      />
-
       <header className="relative z-10 px-4 pt-6 sm:px-6">
         <Link to="/" className="inline-flex transition-opacity hover:opacity-80">
           <AuthLogo />
