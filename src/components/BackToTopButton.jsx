@@ -6,20 +6,21 @@ export default function BackToTopButton({ targetId = "home" }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    function updateVisibility() {
-      const hero = document.getElementById(targetId);
-      const heroBottom = hero?.offsetHeight ?? window.innerHeight;
-      setVisible(window.scrollY >= heroBottom - 96);
+    const hero = document.getElementById(targetId);
+    if (!hero) {
+      return undefined;
     }
 
-    updateVisibility();
-    window.addEventListener("scroll", updateVisibility, { passive: true });
-    window.addEventListener("resize", updateVisibility, { passive: true });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nextVisible = !entry.isIntersecting;
+        setVisible((prev) => (prev === nextVisible ? prev : nextVisible));
+      },
+      { rootMargin: "-96px 0px 0px 0px", threshold: 0 },
+    );
 
-    return () => {
-      window.removeEventListener("scroll", updateVisibility);
-      window.removeEventListener("resize", updateVisibility);
-    };
+    observer.observe(hero);
+    return () => observer.disconnect();
   }, [targetId]);
 
   function scrollToTop() {
