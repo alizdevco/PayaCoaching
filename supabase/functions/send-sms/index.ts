@@ -103,7 +103,6 @@ Deno.serve(async (request) => {
     console.error("sms.ir rejected the message:", {
       httpStatus: smsResponse.status,
       status: result?.status,
-      message: result?.message,
     });
     return jsonResponse({ error: { message: "Sending the SMS failed" } }, 502);
   }

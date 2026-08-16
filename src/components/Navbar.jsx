@@ -6,6 +6,7 @@ import Button from "./Button.jsx";
 import logoImage from "../assets/logo.png";
 import { signOut } from "../features/auth/authApi.js";
 import { useAuth } from "../features/auth/useAuth.js";
+import { navigateToSection } from "../utils/scrollToSection.js";
 
 const navLinks = [
   { hash: "home", label: "خانه" },
@@ -47,11 +48,22 @@ function PayamLogo() {
   );
 }
 
+function handleSectionNavigate(event, hash, pathname, onNavigate) {
+  if (pathname !== "/") {
+    onNavigate?.();
+    return;
+  }
+
+  event.preventDefault();
+  onNavigate?.();
+  navigateToSection(hash, { pathname });
+}
+
 function NavAnchor({ hash, label, pathname, onNavigate }) {
   return (
     <a
       href={hashHref(hash, pathname)}
-      onClick={onNavigate}
+      onClick={(event) => handleSectionNavigate(event, hash, pathname, onNavigate)}
       className="navbar-glass-muted rounded-full px-3 py-2 text-sm font-medium transition-colors hover:bg-white/20"
     >
       {label}
@@ -63,7 +75,7 @@ function DrawerNavLink({ hash, label, pathname, onNavigate }) {
   return (
     <a
       href={hashHref(hash, pathname)}
-      onClick={onNavigate}
+      onClick={(event) => handleSectionNavigate(event, hash, pathname, onNavigate)}
       className="navbar-drawer-link"
     >
       {label}
@@ -129,7 +141,7 @@ function NavbarUserMenu({ displayName, onNavigate, compact = false }) {
       await signOut();
       navigate("/");
     } catch (error) {
-      console.error("[logout]", error);
+      console.error("[logout]", error?.message);
     }
   }
 
@@ -202,7 +214,7 @@ function DrawerAuthLinks({ onNavigate }) {
       await signOut();
       navigate("/");
     } catch (error) {
-      console.error("[logout]", error);
+      console.error("[logout]", error?.message);
     }
   }
 
