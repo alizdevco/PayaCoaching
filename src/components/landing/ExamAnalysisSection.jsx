@@ -1,20 +1,72 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, FileText, Video } from "lucide-react";
 
 import Button from "../Button.jsx";
 import Card from "../Card.jsx";
 import ErrorState from "../ErrorState.jsx";
 import LoadingState from "../LoadingState.jsx";
+import { getExamAnalysis } from "../../features/exams/examsApi.js";
 import { useExamList } from "../../features/exams/useExamList.js";
 import { useIntersectionMount } from "../../hooks/useIntersectionMount.js";
 import { formatExamDate, toPersianDigits } from "../../lib/persianDate.js";
 
 const PAGE_SIZE = 1;
+const EXAM_ANALYSIS_PREFETCH_STALE_TIME = 5 * 60_000;
+
+function prefetchExamAnalysis(queryClient, examDate) {
+  if (!examDate) {
+    return;
+  }
+
+  return queryClient.prefetchQuery({
+    queryKey: ["exam-analysis", examDate],
+    queryFn: () => getExamAnalysis(examDate),
+    staleTime: EXAM_ANALYSIS_PREFETCH_STALE_TIME,
+  });
+}
 
 function ExamCard({ exam }) {
+  const queryClient = useQueryClient();
+  const cardRef = useRef(null);
+  const prefetchedRef = useRef(false);
+
+  const prefetch = useCallback(() => {
+    if (prefetchedRef.current) {
+      return;
+    }
+
+    prefetchedRef.current = true;
+    void prefetchExamAnalysis(queryClient, exam.exam_date);
+  }, [queryClient, exam.exam_date]);
+
+  useEffect(() => {
+    const element = cardRef.current;
+    if (!element) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+          prefetch();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [prefetch]);
+
   return (
-    <Card className="flex h-full flex-col gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 !shadow-sm transition-shadow hover:shadow-md">
+    <Card
+      ref={cardRef}
+      className="flex h-full flex-col gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 !shadow-sm transition-shadow hover:shadow-md"
+    >
       <div className="space-y-1">
         <p className="text-sm font-semibold text-[#059669]">
           {formatExamDate(exam.exam_date)}
@@ -38,7 +90,12 @@ function ExamCard({ exam }) {
         </span>
       </div>
 
-      <Link to={`/exam-analysis/${exam.exam_date}`} className="mt-auto">
+      <Link
+        to={`/exam-analysis/${exam.exam_date}`}
+        className="mt-auto"
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
+      >
         <Button
           variant="secondary"
           className="w-full rounded-full border-stone-200 text-[#1C1917] hover:bg-[#F7F5F0]"
