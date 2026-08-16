@@ -12,6 +12,10 @@ import {
   formatPersianDate,
   formatPersianTime,
 } from "../../lib/persianDate.js";
+import {
+  isSafeExternalUrl,
+  UNSAFE_LINK_OPEN_MESSAGE,
+} from "../../utils/urlValidation.js";
 
 function getMutationErrorMessage(error, fallback) {
   if (error instanceof Error && error.message) {
@@ -58,6 +62,10 @@ export default function StudentReportsPage() {
     setDownloadingId(report.id);
     try {
       const url = await getDownloadUrl(report.id);
+      if (!isSafeExternalUrl(url)) {
+        setDownloadError(UNSAFE_LINK_OPEN_MESSAGE);
+        return;
+      }
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       setDownloadError(

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- supabase-preconnect -->
+
     <link
       rel="preload"
       href="/src/assets/fonts/Lalezar-Regular.woff2"
@@ -20,6 +20,70 @@
       crossorigin
     />
     <title>edu-consult</title>
+    <style id="critical-css">
+      html {
+        scroll-behavior: smooth;
+      }
+      html,
+      body,
+      #root {
+        min-height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: "Vazirmatn", system-ui, sans-serif;
+        background: #f7f5f0;
+        color: #1c1917;
+        -webkit-font-smoothing: antialiased;
+      }
+      .dark body {
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      .min-h-screen {
+        min-height: 100vh;
+      }
+      #home {
+        position: relative;
+        min-height: 100svh;
+        height: 100svh;
+        width: 100%;
+        background: #0a1a14;
+        color: #fff;
+        overflow: hidden;
+      }
+      #home h1 {
+        margin: 0;
+        line-height: 1.25;
+        color: #fff;
+      }
+      #home p {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .landing-shell {
+        width: 100%;
+        max-width: 80rem;
+        margin-inline: auto;
+        padding-inline: 1.5rem;
+      }
+      .navbar-glass-text,
+      .navbar-glass-muted {
+        color: #1c1917;
+      }
+      .navbar-glass--over-hero .navbar-glass-text,
+      .navbar-glass--over-hero .navbar-glass-muted {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      @media (max-width: 767px) {
+        .navbar-glass {
+          background: #0a1a14;
+        }
+        .navbar-glass .navbar-glass-text,
+        .navbar-glass .navbar-glass-muted {
+          color: #fff;
+        }
+      }
+    </style>
     <script>
       try {
         if (localStorage.getItem("admin-dark-mode") === "true") {

@@ -12,6 +12,10 @@ import ErrorState from "../../components/ErrorState.jsx";
 import LoadingState from "../../components/LoadingState.jsx";
 import { useContentSignedUrl } from "../../features/content/useContentSignedUrl.js";
 import { useOwnStudentContent } from "../../features/content/useOwnStudentContent.js";
+import {
+  isSafeExternalUrl,
+  UNSAFE_LINK_OPEN_MESSAGE,
+} from "../../utils/urlValidation.js";
 
 const FILE_TYPE_LABELS = {
   video: "ویدیو",
@@ -143,6 +147,11 @@ export default function StudentSharedContentPage() {
     }
 
     if (downloadUrl) {
+      if (!isSafeExternalUrl(downloadUrl)) {
+        setOpenError(UNSAFE_LINK_OPEN_MESSAGE);
+        setOpeningContentId(null);
+        return;
+      }
       window.open(downloadUrl, "_blank", "noopener,noreferrer");
       setOpeningContentId(null);
       return;

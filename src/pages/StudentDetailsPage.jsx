@@ -33,6 +33,10 @@ import {
   formatPersianTime,
 } from "../lib/persianDate.js";
 import { useWarnOnLeave } from "../hooks/useWarnOnLeave.js";
+import {
+  isSafeExternalUrl,
+  UNSAFE_LINK_OPEN_MESSAGE,
+} from "../utils/urlValidation.js";
 import { useAddLink } from "../features/content/useAddLink.js";
 import { getDownloadUrl } from "../features/content/contentApi.js";
 import { useContentSignedUrl } from "../features/content/useContentSignedUrl.js";
@@ -277,6 +281,10 @@ function ReportsTab({ studentId }) {
     setDownloadingId(report.id);
     try {
       const url = await getDownloadUrl(report.id);
+      if (!isSafeExternalUrl(url)) {
+        setDownloadError(UNSAFE_LINK_OPEN_MESSAGE);
+        return;
+      }
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       setDownloadError(
@@ -693,6 +701,11 @@ function ContentTab({ studentId }) {
     }
 
     if (downloadUrl) {
+      if (!isSafeExternalUrl(downloadUrl)) {
+        setOpenError(UNSAFE_LINK_OPEN_MESSAGE);
+        setOpeningContentId(null);
+        return;
+      }
       window.open(downloadUrl, "_blank", "noopener,noreferrer");
       setOpeningContentId(null);
       return;

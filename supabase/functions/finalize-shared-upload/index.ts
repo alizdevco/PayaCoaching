@@ -20,10 +20,10 @@ Deno.serve(async (request) => {
   const supabase = createServiceClient();
   const caller = await getCaller(request, supabase);
   if (!caller) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+    return jsonResponse(request, { error: "Unauthorized" }, 401);
   }
   if (caller.role !== "admin") {
-    return jsonResponse(
+    return jsonResponse(request, 
       { error: "Only admins can finalize shared content uploads" },
       403,
     );
@@ -39,13 +39,13 @@ Deno.serve(async (request) => {
   try {
     body = await request.json();
   } catch {
-    return jsonResponse({ error: "Request body must be JSON" }, 400);
+    return jsonResponse(request, { error: "Request body must be JSON" }, 400);
   }
 
   const { object_key, file_type, title, mime_type, file_size } = body;
 
   if (typeof object_key !== "string" || !object_key.startsWith("shared-content/")) {
-    return jsonResponse(
+    return jsonResponse(request, 
       { error: "object_key must start with shared-content/" },
       400,
     );
@@ -53,31 +53,31 @@ Deno.serve(async (request) => {
 
   const trimmedTitle = typeof title === "string" ? title.trim() : "";
   if (!trimmedTitle) {
-    return jsonResponse({ error: "title is required" }, 400);
+    return jsonResponse(request, { error: "title is required" }, 400);
   }
 
   if (typeof file_type !== "string" || !FILE_TYPES.has(file_type)) {
-    return jsonResponse(
+    return jsonResponse(request, 
       { error: "file_type must be one of: video, pdf, image, report" },
       400,
     );
   }
 
   if (typeof mime_type !== "string" || !mime_type.trim()) {
-    return jsonResponse({ error: "mime_type is required" }, 400);
+    return jsonResponse(request, { error: "mime_type is required" }, 400);
   }
 
   if (
     typeof file_size !== "number" || !Number.isFinite(file_size) ||
     file_size <= 0
   ) {
-    return jsonResponse({ error: "file_size must be a positive number" }, 400);
+    return jsonResponse(request, { error: "file_size must be a positive number" }, 400);
   }
 
   const arvan = getArvanConfig();
   if (!arvan) {
     console.error("finalize-shared-upload is missing Arvan storage secrets");
-    return jsonResponse({ error: "Storage is not configured" }, 500);
+    return jsonResponse(request, { error: "Storage is not configured" }, 500);
   }
 
   try {
@@ -95,10 +95,10 @@ Deno.serve(async (request) => {
       storageError.message,
       storageError.status,
     );
-    return jsonResponse(
+    return jsonResponse(request,
       {
-        error: "Uploaded object was not found in storage",
-        detail: storageError.message,
+        error: "خطا در تأیید فایل در فضای ذخیره‌سازی. لطفاً دوباره تلاش کنید.",
+        detail: "خطا در تأیید فایل در فضای ذخیره‌سازی. لطفاً دوباره تلاش کنید.",
       },
       400,
     );
@@ -114,13 +114,13 @@ Deno.serve(async (request) => {
       "finalize-shared-upload failed to load students:",
       studentsError.message,
     );
-    return jsonResponse({ error: "Could not load the student list" }, 500);
+    return jsonResponse(request, { error: "Could not load the student list" }, 500);
   }
 
   const studentIds = (students ?? []).map((student) => student.id as string);
 
   if (studentIds.length === 0) {
-    return jsonResponse({ error: "No students to assign content to" }, 400);
+    return jsonResponse(request, { error: "No students to assign content to" }, 400);
   }
 
   const rows = studentIds.map((studentId) => ({
@@ -142,13 +142,41 @@ Deno.serve(async (request) => {
       "finalize-shared-upload failed to insert rows:",
       insertError.message,
     );
-    return jsonResponse({ error: "Could not save content metadata" }, 500);
+    return jsonResponse(request, { error: "Could not save content metadata" }, 500);
   }
 
-  return jsonResponse(
+  if (insertedCount == null) {
+    console.error(
+      "finalize-shared-upload insert succeeded but count was not returned:",
+      { expected: rows.length },
+    );
+    return jsonResponse(request, 
+      {
+        error:
+          "ذخیره‌سازی انجام شد اما تعداد ردیف‌های ثبت‌شده تأیید نشد. لطفاً از پنل مدیریت وضعیت را به‌صورت دستی بررسی کنید.",
+      },
+      500,
+    );
+  }
+
+  if (insertedCount !== rows.length) {
+    console.error(
+      "finalize-shared-upload insert count mismatch:",
+      { expected: rows.length, actual: insertedCount },
+    );
+    return jsonResponse(request, 
+      {
+        error:
+          `${insertedCount} از ${rows.length} ردیف ذخیره شد. لطفاً از پنل مدیریت وضعیت را به‌صورت دستی بررسی کنید.`,
+      },
+      500,
+    );
+  }
+
+  return jsonResponse(request, 
     {
       object_key,
-      student_count: insertedCount ?? rows.length,
+      student_count: insertedCount,
     },
     200,
   );

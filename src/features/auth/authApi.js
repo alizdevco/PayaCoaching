@@ -1,11 +1,12 @@
 import { supabase } from "../../lib/supabase.js";
+import { invokeEdgeFunction } from "../../lib/edgeFunctions.js";
+import { isDefinitiveProfileLoadFailure } from "./authMutationErrors.js";
 import {
-  INCOMPLETE_REGISTRATION_MESSAGE,
-  PHONE_ALREADY_REGISTERED_MESSAGE,
-  PHONE_NOT_REGISTERED_MESSAGE,
   toSupabasePhone,
   validateIranianPhone,
 } from "./phoneValidation.js";
+
+const PROFILE_LOAD_RETRY_DELAY_MS = 2500;
 
 export {
   validateIranianPhone,
@@ -37,36 +38,11 @@ export async function signInWithPassword({ identifier, password }) {
   return data;
 }
 
-// Register a new student with phone + password. The database trigger
-// (handle_new_user) creates the matching profiles row automatically, so we do
-// not insert into profiles here. First/last name are saved to the profile
-// after sign-up.
-
-export async function signUpStudent({ phone, password, firstName, lastName }) {
-  const normalizedPhone = normalizePhone(phone);
-
-  const { data, error } = await supabase.auth.signUp({
-    phone: normalizedPhone,
-    password,
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  const userId = data.user?.id;
-  if (userId) {
-    await updateOwnProfileNames({ firstName, lastName });
-  }
-
-  return data;
-}
-
 // Save first/last name onto the current user's own profile row.
 export async function updateOwnProfileNames({ firstName, lastName }) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
-  if (!userId) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (userError || !userId) {
     return null;
   }
 
@@ -94,9 +70,9 @@ export async function updateOwnProfile({
   grade,
   academicMajor,
 }) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
-  if (!userId) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (userError || !userId) {
     throw new Error("برای تکمیل پروفایل باید وارد حساب کاربری شوید.");
   }
 
@@ -197,6 +173,31 @@ export async function getProfile(userId) {
   return data;
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function getProfileWithRetry(
+  userId,
+  { maxRetries = 1, retryDelayMs = PROFILE_LOAD_RETRY_DELAY_MS } = {},
+) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await getProfile(userId);
+    } catch (error) {
+      lastError = error;
+      if (isDefinitiveProfileLoadFailure(error) || attempt >= maxRetries) {
+        throw error;
+      }
+      await delay(retryDelayMs);
+    }
+  }
+
+  throw lastError;
+}
+
 export function onAuthStateChange(callback) {
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
     callback(event, session);
@@ -210,38 +211,16 @@ export function onAuthStateChange(callback) {
 // code to the send-sms Edge Function, which relays it to sms.ir.
 // ---------------------------------------------------------------------------
 
-// Request a phone OTP via Supabase Auth.
+// Request a phone OTP via the registration Edge Function (server-side duplicate check).
 export async function sendOtp(phone) {
   const result = validateIranianPhone(phone);
   if (!result.valid) {
     throw new Error(result.message);
   }
 
-  const normalizedPhone = toSupabasePhone(result.phone);
-
-  const { data: profileExists, error: profileError } = await supabase.rpc(
-    "profile_exists_for_phone",
-    { lookup_phone: result.phone },
-  );
-
-  if (profileError) {
-    const rpcMissing =
-      String(profileError.code ?? "") === "PGRST202" ||
-      String(profileError.message ?? "").includes("profile_exists_for_phone");
-    if (!rpcMissing) {
-      throw profileError;
-    }
-  } else if (profileExists) {
-    throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
-  }
-
-  const { error: otpError } = await supabase.auth.signInWithOtp({
-    phone: normalizedPhone,
+  await invokeEdgeFunction("request-registration-otp", {
+    phone: result.phone,
   });
-
-  if (otpError) {
-    throw otpError;
-  }
 
   return { success: true, phone: result.phone };
 }
@@ -263,59 +242,32 @@ export async function verifyOtp({ phone, code }) {
   return { success: true, phone: normalizedPhone, session: data.session };
 }
 
-// Request a phone OTP for password reset (completed student profiles only).
+// Request a phone OTP for password reset via the server-side Edge Function.
 export async function sendPasswordResetOtp(phone) {
   const result = validateIranianPhone(phone);
   if (!result.valid) {
     throw new Error(result.message);
   }
 
-  const normalizedPhone = toSupabasePhone(result.phone);
+  await invokeEdgeFunction("request-password-reset-otp", {
+    phone: result.phone,
+  });
 
-  const { data: canReset, error: resetError } = await supabase.rpc(
-    "student_can_reset_password",
-    { lookup_phone: result.phone },
-  );
+  return { success: true, phone: result.phone };
+}
 
-  if (resetError) {
-    const rpcMissing =
-      String(resetError.code ?? "") === "PGRST202" ||
-      String(resetError.message ?? "").includes("student_can_reset_password");
-    if (!rpcMissing) {
-      throw resetError;
-    }
-  } else if (canReset) {
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      phone: normalizedPhone,
-    });
+export const PASSWORD_CHANGED_SIGNOUT_FAILED_CODE =
+  "PASSWORD_CHANGED_SIGNOUT_FAILED";
 
-    if (otpError) {
-      throw otpError;
-    }
+export function isPasswordChangedSignOutFailed(error) {
+  return error?.code === PASSWORD_CHANGED_SIGNOUT_FAILED_CODE;
+}
 
-    return { success: true, phone: result.phone };
-  }
-
-  const { data: profileExists, error: profileError } = await supabase.rpc(
-    "profile_exists_for_phone",
-    { lookup_phone: result.phone },
-  );
-
-  if (profileError) {
-    const rpcMissing =
-      String(profileError.code ?? "") === "PGRST202" ||
-      String(profileError.message ?? "").includes("profile_exists_for_phone");
-    if (!rpcMissing) {
-      throw profileError;
-    }
-    throw new Error(PHONE_NOT_REGISTERED_MESSAGE);
-  }
-
-  if (profileExists) {
-    throw new Error(INCOMPLETE_REGISTRATION_MESSAGE);
-  }
-
-  throw new Error(PHONE_NOT_REGISTERED_MESSAGE);
+function createPasswordChangedSignOutFailedError(cause) {
+  const error = new Error("Password changed but sign-out failed");
+  error.code = PASSWORD_CHANGED_SIGNOUT_FAILED_CODE;
+  error.cause = cause;
+  return error;
 }
 
 // Set a new password after OTP verification, then sign out.
@@ -325,5 +277,6 @@ export async function resetPasswordAfterOtp(password) {
     await signOut();
   } catch (error) {
     console.error("[resetPasswordAfterOtp] signOut failed:", error?.message);
+    throw createPasswordChangedSignOutFailedError(error);
   }
 }

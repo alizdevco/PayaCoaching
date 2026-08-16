@@ -49,9 +49,9 @@ Deno.serve(async (request) => {
 
   const supabase = createServiceClient();
   const caller = await getCaller(request, supabase);
-  if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!caller) return jsonResponse(request, { error: "Unauthorized" }, 401);
   if (caller.role !== "admin") {
-    return jsonResponse({ error: "Only admins can upload exam files" }, 403);
+    return jsonResponse(request, { error: "Only admins can upload exam files" }, 403);
   }
 
   const url = new URL(request.url);
@@ -60,12 +60,12 @@ Deno.serve(async (request) => {
   const titleParam = url.searchParams.get("title");
 
   if (!isUuid(examAnalysisId)) {
-    return jsonResponse({ error: "exam_analysis_id must be a valid UUID" }, 400);
+    return jsonResponse(request, { error: "exam_analysis_id must be a valid UUID" }, 400);
   }
 
   const typeConfig = fileType ? FILE_TYPES[fileType] : undefined;
   if (!typeConfig) {
-    return jsonResponse(
+    return jsonResponse(request, 
       { error: "file_type must be one of: video, pdf" },
       400,
     );
@@ -73,7 +73,7 @@ Deno.serve(async (request) => {
 
   const mimeType = (request.headers.get("content-type") ?? "").toLowerCase();
   if (!typeConfig.mimes.includes(mimeType)) {
-    return jsonResponse(
+    return jsonResponse(request, 
       {
         error: `mime_type for ${fileType} must be one of: ${
           typeConfig.mimes.join(", ")
@@ -85,10 +85,10 @@ Deno.serve(async (request) => {
 
   const contentLength = Number(request.headers.get("content-length"));
   if (!Number.isFinite(contentLength) || contentLength <= 0) {
-    return jsonResponse({ error: "file_size must be a positive number" }, 400);
+    return jsonResponse(request, { error: "file_size must be a positive number" }, 400);
   }
   if (contentLength > typeConfig.maxBytes) {
-    return jsonResponse(
+    return jsonResponse(request, 
       {
         error: `File is too large; ${fileType} uploads are limited to ${
           Math.round(typeConfig.maxBytes / (1024 * 1024))
@@ -99,7 +99,7 @@ Deno.serve(async (request) => {
   }
 
   if (!request.body) {
-    return jsonResponse({ error: "Request body is required" }, 400);
+    return jsonResponse(request, { error: "Request body is required" }, 400);
   }
 
   const title = titleParam?.trim() || "فایل";
@@ -111,13 +111,13 @@ Deno.serve(async (request) => {
     .single();
 
   if (!examAnalysis) {
-    return jsonResponse({ error: "Exam analysis not found" }, 404);
+    return jsonResponse(request, { error: "Exam analysis not found" }, 404);
   }
 
   const arvan = getArvanPublicConfig();
   if (!arvan) {
     console.error("upload-exam-file is missing Arvan public storage secrets");
-    return jsonResponse({ error: "Public storage is not configured" }, 500);
+    return jsonResponse(request, { error: "Public storage is not configured" }, 500);
   }
 
   const objectKey =
@@ -150,11 +150,11 @@ Deno.serve(async (request) => {
       storageError.status,
     );
 
-    return jsonResponse(
+    return jsonResponse(request,
       {
-        error: "Could not upload the file to storage",
-        detail: storageError.message,
-        code: storageError.name,
+        error: "خطا در آپلود فایل. لطفاً دوباره تلاش کنید.",
+        detail: "خطا در آپلود فایل. لطفاً دوباره تلاش کنید.",
+        code: "storage_error",
       },
       502,
     );
@@ -205,10 +205,10 @@ Deno.serve(async (request) => {
         (cleanupError as Error).message,
       );
     }
-    return jsonResponse({ error: "Could not save file metadata" }, 500);
+    return jsonResponse(request, { error: "Could not save file metadata" }, 500);
   }
 
-  return jsonResponse(
+  return jsonResponse(request, 
     {
       object_key: objectKey,
       public_url: publicUrl,

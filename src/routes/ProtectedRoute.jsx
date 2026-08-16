@@ -7,9 +7,10 @@ export default function ProtectedRoute({
   requiredRole,
   skipProfileCompletionCheck = false,
 }) {
-  const { session, role, profile, isLoading } = useAuth();
+  const { session, role, profile, isLoading, isSessionValidated } = useAuth();
 
-  if (isLoading) {
+  // AuthContext validates the local JWT with getUser() once at bootstrap.
+  if (isLoading || !isSessionValidated) {
     return (
       <div className="flex min-h-screen items-center justify-center text-gray-500">
         در حال بارگذاری...

@@ -137,17 +137,17 @@ Deno.serve(async (request) => {
   const supabase = createServiceClient();
   const caller = await getCaller(request, supabase);
   if (!caller) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+    return jsonResponse(request, { error: "Unauthorized" }, 401);
   }
   if (caller.role !== "admin") {
-    return jsonResponse({ error: "Only admins can upload files" }, 403);
+    return jsonResponse(request, { error: "Only admins can upload files" }, 403);
   }
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return jsonResponse({ error: "Request body must be JSON" }, 400);
+    return jsonResponse(request, { error: "Request body must be JSON" }, 400);
   }
 
   try {
@@ -174,7 +174,7 @@ Deno.serve(async (request) => {
         throw new Error("storage did not return an upload id");
       }
 
-      return jsonResponse({
+      return jsonResponse(request, {
         upload_id: created.UploadId,
         object_key: objectKey,
         mime_type: target.mimeType,
@@ -211,7 +211,7 @@ Deno.serve(async (request) => {
         })),
       );
 
-      return jsonResponse({ parts: urls }, 200);
+      return jsonResponse(request, { parts: urls }, 200);
     }
 
     if (action === "complete") {
@@ -226,7 +226,7 @@ Deno.serve(async (request) => {
         }),
       );
 
-      return jsonResponse({
+      return jsonResponse(request, {
         object_key: objectKey,
         ...(storage.publicUrl
           ? { public_url: storage.publicUrl(objectKey) }
@@ -242,16 +242,21 @@ Deno.serve(async (request) => {
       }),
     );
 
-    return jsonResponse({ aborted: true }, 200);
+    return jsonResponse(request, { aborted: true }, 200);
   } catch (error) {
     if (error instanceof UploadRequestError) {
-      return jsonResponse({ error: error.message }, error.status);
+      return jsonResponse(request, { error: error.message }, error.status);
     }
 
     const storageError = formatStorageError(error);
-    console.error("multipart-upload failed:", storageError);
-    return jsonResponse(
-      { error: "Could not complete the upload request" },
+    console.error(
+      "multipart-upload failed:",
+      storageError.name,
+      storageError.message,
+      storageError.status,
+    );
+    return jsonResponse(request, 
+      { error: "خطا در آپلود چندبخشی فایل. لطفاً دوباره تلاش کنید." },
       storageError.status && storageError.status >= 400 &&
         storageError.status < 500
         ? 400

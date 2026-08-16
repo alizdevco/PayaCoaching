@@ -5,30 +5,33 @@
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { S3Client } from "npm:@aws-sdk/client-s3@3.726.0";
+import { getCorsHeaders } from "./cors.ts";
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+export { getCorsHeaders } from "./cors.ts";
 
 export function jsonResponse(
+  request: Request,
   body: Record<string, unknown>,
   status: number,
 ): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...getCorsHeaders(request),
+      "Content-Type": "application/json",
+    },
   });
 }
 
 export function handlePreflight(request: Request): Response | null {
   if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, {
+      status: 204,
+      headers: getCorsHeaders(request),
+    });
   }
   if (request.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(request, { error: "Method not allowed" }, 405);
   }
   return null;
 }

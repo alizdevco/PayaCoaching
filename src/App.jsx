@@ -1,8 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Routes, Route } from "react-router-dom";
 
-import AdminLayout from "./components/AdminLayout.jsx";
-import StudentLayout from "./components/StudentLayout.jsx";
 import LoadingState from "./components/LoadingState.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
@@ -43,6 +41,8 @@ const SharedContentPage = lazy(() =>
   import("./features/content/SharedContentPage.jsx"),
 );
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
+const AdminLayout = lazy(() => import("./components/AdminLayout.jsx"));
+const StudentLayout = lazy(() => import("./components/StudentLayout.jsx"));
 
 function App() {
   return (

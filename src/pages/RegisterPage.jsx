@@ -70,6 +70,7 @@ export default function RegisterPage() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [serverError, setServerError] = useState("");
   const otpSentAtRef = useRef(new Map());
+  const step2HistorySeededRef = useRef(false);
 
   const recordOtpSent = useCallback((phoneNumber) => {
     const sentAt = Date.now();
@@ -93,11 +94,32 @@ export default function RegisterPage() {
   const effectiveStep = isResumingIncompleteRegistration ? 3 : step;
 
   useEffect(() => {
-    if (step !== 3) return;
+    if (step < 2) {
+      step2HistorySeededRef.current = false;
+      return;
+    }
+
+    // Step 1→2 does not push history (forward nav). Seed once so browser back
+    // on step 2 can be intercepted; skip when returning 3→2 (already pushed).
+    if (step === 2 && !step2HistorySeededRef.current) {
+      pushRegisterHistory();
+      step2HistorySeededRef.current = true;
+    }
 
     const onPopState = () => {
-      setStep(2);
-      pushRegisterHistory();
+      setStep((prevStep) => {
+        const nextStep = Math.max(1, prevStep - 1);
+        if (prevStep === 2 && nextStep === 1) {
+          setServerError("");
+          step2HistorySeededRef.current = false;
+        }
+        // Match forward-nav history pattern: push when landing on step 2+ (2→3
+        // pushes on forward; 3→2 pushes here). Step 2→1 UI back does not push.
+        if (nextStep >= 2) {
+          pushRegisterHistory();
+        }
+        return nextStep;
+      });
     };
 
     window.addEventListener("popstate", onPopState);

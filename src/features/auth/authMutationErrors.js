@@ -34,11 +34,28 @@ function isAuthSessionError(error) {
 
   return (
     code === "pgrst301" ||
+    code === "pgrst302" ||
+    code === "pgrst303" ||
     message.includes("jwt expired") ||
     message.includes("not authenticated") ||
     (message.includes("session") && message.includes("expired")) ||
     error?.status === 401
   );
+}
+
+/** PostgREST .single() when zero (or multiple) rows are returned — profile missing or RLS hides it. */
+export function isProfileNotFoundError(error) {
+  return String(error?.code ?? "").toUpperCase() === "PGRST116";
+}
+
+/** Errors where clearing profile is correct; everything else is treated as transient. */
+export function isDefinitiveProfileLoadFailure(error) {
+  if (isProfileNotFoundError(error) || isAuthSessionError(error)) {
+    return true;
+  }
+
+  const status = Number(error?.status);
+  return status === 403;
 }
 
 /**

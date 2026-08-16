@@ -405,6 +405,15 @@ deno_version = 2
 enabled = true
 verify_jwt = false
 
+# Unauthenticated OTP request endpoints (phone checks run server-side).
+[functions.request-registration-otp]
+enabled = true
+verify_jwt = false
+
+[functions.request-password-reset-otp]
+enabled = true
+verify_jwt = false
+
 # Storage functions require a logged-in user; role checks happen inside.
 [functions.create-upload-url]
 enabled = true

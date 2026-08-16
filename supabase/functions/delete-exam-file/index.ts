@@ -19,20 +19,20 @@ Deno.serve(async (request) => {
 
   const supabase = createServiceClient();
   const caller = await getCaller(request, supabase);
-  if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!caller) return jsonResponse(request, { error: "Unauthorized" }, 401);
   if (caller.role !== "admin") {
-    return jsonResponse({ error: "Only admins can delete exam files" }, 403);
+    return jsonResponse(request, { error: "Only admins can delete exam files" }, 403);
   }
 
   let body: { file_id?: unknown };
   try {
     body = await request.json();
   } catch {
-    return jsonResponse({ error: "Request body must be JSON" }, 400);
+    return jsonResponse(request, { error: "Request body must be JSON" }, 400);
   }
 
   if (!isUuid(body.file_id)) {
-    return jsonResponse({ error: "file_id must be a valid UUID" }, 400);
+    return jsonResponse(request, { error: "file_id must be a valid UUID" }, 400);
   }
 
   const { data: fileRow } = await supabase
@@ -42,13 +42,13 @@ Deno.serve(async (request) => {
     .single();
 
   if (!fileRow) {
-    return jsonResponse({ error: "File not found" }, 404);
+    return jsonResponse(request, { error: "File not found" }, 404);
   }
 
   const arvan = getArvanPublicConfig();
   if (!arvan) {
     console.error("delete-exam-file is missing Arvan public storage secrets");
-    return jsonResponse({ error: "Public storage is not configured" }, 500);
+    return jsonResponse(request, { error: "Public storage is not configured" }, 500);
   }
 
   try {
@@ -66,8 +66,11 @@ Deno.serve(async (request) => {
       storageError.message,
       storageError.status,
     );
-    return jsonResponse(
-      { error: "Could not delete the file from storage" },
+    return jsonResponse(request, 
+      {
+        error:
+          "خطا در حذف فایل از فضای ذخیره‌سازی. لطفاً دوباره تلاش کنید.",
+      },
       502,
     );
   }
@@ -82,8 +85,8 @@ Deno.serve(async (request) => {
       "delete-exam-file failed to delete the row:",
       deleteError.message,
     );
-    return jsonResponse({ error: "Could not update the database" }, 500);
+    return jsonResponse(request, { error: "Could not update the database" }, 500);
   }
 
-  return jsonResponse({ success: true }, 200);
+  return jsonResponse(request, { success: true }, 200);
 });

@@ -29,6 +29,38 @@ function supabasePreconnect() {
   };
 }
 
+/** Rewrites emitted CSS `<link>` tags to load without blocking first paint. */
+function nonBlockingCss() {
+  return {
+    name: "non-blocking-css",
+    transformIndexHtml: {
+      order: "post",
+      handler(html) {
+        return html.replace(
+          /<link\s+rel="stylesheet"\s+([^>]*?)>/g,
+          (match, attrs) => {
+            const hrefMatch = attrs.match(/\bhref="([^"]+)"/);
+            if (!hrefMatch) {
+              return match;
+            }
+
+            const href = hrefMatch[1];
+            const crossorigin = /\bcrossorigin\b/.test(attrs)
+              ? " crossorigin"
+              : "";
+
+            return [
+              `<link rel="preload" href="${href}" as="style">`,
+              `<link rel="stylesheet" href="${href}" media="print" onload="this.media='all'"${crossorigin}>`,
+              `<noscript><link rel="stylesheet" href="${href}"${crossorigin}></noscript>`,
+            ].join("\n    ");
+          },
+        );
+      },
+    },
+  };
+}
+
 /** Rewrites font preload hrefs to hashed production asset paths. */
 function preloadFonts() {
   const devFontPaths = [
@@ -65,7 +97,13 @@ function preloadFonts() {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), supabasePreconnect(), preloadFonts()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    supabasePreconnect(),
+    preloadFonts(),
+    nonBlockingCss(),
+  ],
   server: {
     host: "127.0.0.1",
     port: 5173,
