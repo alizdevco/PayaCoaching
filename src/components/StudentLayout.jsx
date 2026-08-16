@@ -160,7 +160,7 @@ export default function StudentLayout() {
       await signOut();
       navigate("/login", { replace: true });
     } catch (error) {
-      console.error("[logout]", error);
+      console.error("[logout]", error?.message);
       setIsLoggingOut(false);
     }
   }
