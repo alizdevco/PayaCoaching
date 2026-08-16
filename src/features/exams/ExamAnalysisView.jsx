@@ -4,6 +4,10 @@ import { ArrowLeft, Download, FileText, Play } from "lucide-react";
 
 import { useExamList } from "./useExamList.js";
 import { formatExamDate } from "../../lib/persianDate.js";
+import { navigateToSection } from "../../utils/scrollToSection.js";
+
+const videoPosterDataUri =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 680 383'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='680' y2='383' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0' stop-color='%230a1f16'/%3E%3Cstop offset='1' stop-color='%230f2e20'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='680' height='383' fill='url(%23g)'/%3E%3Cg opacity='0.08' stroke='%23ffffff'%3E%3Cline x1='-40' y1='40' x2='720' y2='420'/%3E%3Cline x1='-40' y1='120' x2='720' y2='500'/%3E%3Cline x1='-40' y1='-40' x2='720' y2='340'/%3E%3Cline x1='-40' y1='-120' x2='720' y2='260'/%3E%3Cline x1='-40' y1='200' x2='720' y2='-180'/%3E%3Cline x1='-40' y1='280' x2='720' y2='-100'/%3E%3C/g%3E%3Ccircle cx='340' cy='191' r='56' fill='%2310b981' opacity='0.14'/%3E%3Ccircle cx='340' cy='191' r='40' fill='%2310b981'/%3E%3Cpath d='M330 173L358 191L330 209Z' fill='%230a1f16'/%3E%3C/svg%3E";
 
 function MetaDot() {
   return (
@@ -64,9 +68,15 @@ function useScrollSpy(sectionIds) {
 }
 
 function TocLink({ href, label, active, compact = false }) {
+  const sectionId = href.startsWith("#") ? href.slice(1) : href;
+
   return (
     <a
       href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        navigateToSection(sectionId);
+      }}
       className={[
         "text-sm transition-colors",
         compact
@@ -301,7 +311,8 @@ export default function ExamAnalysisView({ exam }) {
                     </p>
                     <video
                       controls
-                      preload="metadata"
+                      preload="none"
+                      poster={videoPosterDataUri}
                       src={file.public_url}
                       className="aspect-video w-full rounded-lg bg-black"
                       title={file.title}
