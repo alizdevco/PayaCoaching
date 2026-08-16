@@ -8,6 +8,7 @@ import { useAuth } from "../features/auth/useAuth.js";
 import { useLogin } from "../features/auth/useLogin.js";
 import { dashboardPathForRole } from "../features/auth/authRoutes.js";
 import { validateIranianPhone } from "../features/auth/phoneValidation.js";
+import { isPasswordChangedSignOutFailed } from "../features/auth/authApi.js";
 import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors.js";
 import {
   useSendPasswordResetOtp,
@@ -82,6 +83,10 @@ export default function LoginPage() {
   const [mode, setMode] = useState(initialForgot.mode);
   const [forgotStep, setForgotStep] = useState(initialForgot.forgotStep);
   const [phone, setPhone] = useState(initialForgot.phone);
+  const phoneRef = useRef(phone);
+  useEffect(() => {
+    phoneRef.current = phone;
+  }, [phone]);
   const [otpVerified, setOtpVerified] = useState(initialForgot.otpVerified);
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -98,14 +103,14 @@ export default function LoginPage() {
   }, []);
 
   const persistForgotWizard = useCallback(
-    (nextStep, nextPhone = phone) => {
+    (nextStep, nextPhone) => {
       writeForgotPasswordWizard({
         mode: "forgot",
         step: nextStep,
-        phone: nextPhone,
+        phone: nextPhone ?? phoneRef.current,
       });
     },
-    [phone],
+    [],
   );
 
   const recordOtpSent = useCallback((phoneNumber) => {
@@ -286,7 +291,7 @@ export default function LoginPage() {
           <ForgotNewPasswordStep
             onError={setServerError}
             serverError={serverError}
-            onDone={() => {
+            onDone={(message) => {
               clearForgotPasswordState();
               setMode("login");
               setForgotStep(1);
@@ -294,7 +299,7 @@ export default function LoginPage() {
               setPhone("");
               setServerError("");
               setSuccessMessage(
-                "رمز عبور با موفقیت تغییر کرد. اکنون وارد شوید.",
+                message ?? "رمز عبور با موفقیت تغییر کرد. اکنون وارد شوید.",
               );
             }}
           />
@@ -648,6 +653,16 @@ function ForgotNewPasswordStep({ onDone, onError, serverError }) {
   const resetPassword = useResetPassword({
     onSuccess: () => onDone(),
     onError: (error) => {
+      if (isPasswordChangedSignOutFailed(error)) {
+        console.error(
+          "[resetPasswordAfterOtp] signOut failed:",
+          error?.cause?.message ?? error?.message,
+        );
+        onDone(
+          "رمز عبور با موفقیت تغییر کرد، اما خروج از این دستگاه انجام نشد. لطفاً صفحه را ببندید یا مرورگر را رفرش کنید.",
+        );
+        return;
+      }
       console.error("[resetPasswordAfterOtp]", error?.message);
       onError(getAuthMutationErrorMessage(error, "password-reset"));
     },

@@ -37,4 +37,3 @@ supabase/.temp/
 .tmp-lh-before/
 test-results/
 playwright-report/
-*.zip

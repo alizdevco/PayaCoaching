@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 const RIGHT_WAVE_PATHS = [
   {
@@ -168,8 +168,14 @@ function WavePath({ path, reverse = false }) {
 
 export default function HeroWaveBackground() {
   const layout = useMobileLayout();
-  const leftPaths = adaptPaths(LEFT_WAVE_PATHS, layout, layout.leftShift);
-  const rightPaths = adaptPaths(RIGHT_WAVE_PATHS, layout, layout.rightShift);
+  const leftPaths = useMemo(
+    () => adaptPaths(LEFT_WAVE_PATHS, layout, layout.leftShift),
+    [layout],
+  );
+  const rightPaths = useMemo(
+    () => adaptPaths(RIGHT_WAVE_PATHS, layout, layout.rightShift),
+    [layout],
+  );
 
   return (
     <svg

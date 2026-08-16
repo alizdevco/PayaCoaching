@@ -1,6 +1,7 @@
 import { supabase } from "../../lib/supabase.js";
 import { invokeEdgeFunction } from "../../lib/edgeFunctions.js";
 import { uploadFileToStorage } from "../../lib/storageUpload.js";
+import { assertSafeExternalUrl } from "../../utils/urlValidation.js";
 
 const CONTENT_COLUMNS =
   "id, student_id, title, description, file_type, file_path, mime_type, file_size, report_date, uploaded_by, created_at, updated_at";
@@ -279,6 +280,9 @@ export async function uploadSharedContentLegacy(
 }
 
 export async function addLink(studentId, title, url) {
+  const trimmedUrl = String(url ?? "").trim();
+  assertSafeExternalUrl(trimmedUrl);
+
   const uploadedBy = await getCurrentUserId();
 
   const { data, error } = await supabase
@@ -287,7 +291,7 @@ export async function addLink(studentId, title, url) {
       student_id: studentId,
       title,
       file_type: "link",
-      file_path: url,
+      file_path: trimmedUrl,
       mime_type: null,
       file_size: null,
       uploaded_by: uploadedBy,
@@ -312,6 +316,8 @@ export async function uploadSharedLink(title, url) {
   if (!trimmedUrl) {
     throw new Error("آدرس لینک الزامی است.");
   }
+
+  assertSafeExternalUrl(trimmedUrl);
 
   const uploadedBy = await getCurrentUserId();
 

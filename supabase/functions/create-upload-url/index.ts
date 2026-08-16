@@ -16,6 +16,7 @@ import { PutObjectCommand } from "npm:@aws-sdk/client-s3@3.726.0";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3.726.0";
 import {
   createServiceClient,
+  formatStorageError,
   getCaller,
   handlePreflight,
   jsonResponse,
@@ -36,17 +37,17 @@ Deno.serve(async (request) => {
   const supabase = createServiceClient();
   const caller = await getCaller(request, supabase);
   if (!caller) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+    return jsonResponse(request, { error: "Unauthorized" }, 401);
   }
   if (caller.role !== "admin") {
-    return jsonResponse({ error: "Only admins can upload files" }, 403);
+    return jsonResponse(request, { error: "Only admins can upload files" }, 403);
   }
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return jsonResponse({ error: "Request body must be JSON" }, 400);
+    return jsonResponse(request, { error: "Request body must be JSON" }, 400);
   }
 
   try {
@@ -70,14 +71,20 @@ Deno.serve(async (request) => {
         },
       );
     } catch (error) {
+      const storageError = formatStorageError(error);
       console.error(
         "create-upload-url failed to presign:",
-        (error as Error).message,
+        storageError.name,
+        storageError.message,
+        storageError.status,
       );
-      return jsonResponse({ error: "Could not create the upload URL" }, 502);
+      return jsonResponse(request, 
+        { error: "خطا در ایجاد آدرس آپلود. لطفاً دوباره تلاش کنید." },
+        502,
+      );
     }
 
-    return jsonResponse(
+    return jsonResponse(request, 
       {
         upload_url: uploadUrl,
         object_key: objectKey,
@@ -90,9 +97,9 @@ Deno.serve(async (request) => {
     );
   } catch (error) {
     if (error instanceof UploadRequestError) {
-      return jsonResponse({ error: error.message }, error.status);
+      return jsonResponse(request, { error: error.message }, error.status);
     }
     console.error("create-upload-url failed:", (error as Error).message);
-    return jsonResponse({ error: "Could not create the upload URL" }, 500);
+    return jsonResponse(request, { error: "Could not create the upload URL" }, 500);
   }
 });

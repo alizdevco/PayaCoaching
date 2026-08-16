@@ -1,12 +1,21 @@
+import { lazy, Suspense } from "react";
+
 import Navbar from "../components/Navbar.jsx";
-import BackToTopButton from "../components/BackToTopButton.jsx";
-import LandingFooter from "../components/LandingFooter.jsx";
 import HeroSection from "../components/landing/HeroSection.jsx";
-import AboutSection from "../components/landing/AboutSection.jsx";
-import FeaturesSection from "../components/landing/FeaturesSection.jsx";
-import ExamAnalysisSection from "../components/landing/ExamAnalysisSection.jsx";
-import CtaSection from "../components/landing/CtaSection.jsx";
-import ContactSection from "../components/landing/ContactSection.jsx";
+
+const AboutSection = lazy(() => import("../components/landing/AboutSection.jsx"));
+const FeaturesSection = lazy(
+  () => import("../components/landing/FeaturesSection.jsx"),
+);
+const ExamAnalysisSection = lazy(
+  () => import("../components/landing/ExamAnalysisSection.jsx"),
+);
+const CtaSection = lazy(() => import("../components/landing/CtaSection.jsx"));
+const ContactSection = lazy(
+  () => import("../components/landing/ContactSection.jsx"),
+);
+const LandingFooter = lazy(() => import("../components/LandingFooter.jsx"));
+const BackToTopButton = lazy(() => import("../components/BackToTopButton.jsx"));
 
 export default function LandingPage() {
   return (
@@ -15,15 +24,19 @@ export default function LandingPage() {
 
       <main>
         <HeroSection />
-        <AboutSection />
-        <FeaturesSection />
-        <ExamAnalysisSection />
-        <CtaSection />
-        <ContactSection />
+        <Suspense fallback={null}>
+          <AboutSection />
+          <FeaturesSection />
+          <ExamAnalysisSection />
+          <CtaSection />
+          <ContactSection />
+        </Suspense>
       </main>
 
-      <LandingFooter />
-      <BackToTopButton />
+      <Suspense fallback={null}>
+        <LandingFooter />
+        <BackToTopButton />
+      </Suspense>
     </div>
   );
 }
