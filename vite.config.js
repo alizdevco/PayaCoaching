@@ -2,6 +2,8 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+import { preloadFonts } from "./plugins/preloadFonts.js";
+
 /** Injects `<link rel="preconnect">` for the Supabase API origin from env. */
 function supabasePreconnect() {
   let supabaseOrigin = "";
@@ -56,41 +58,6 @@ function nonBlockingCss() {
             ].join("\n    ");
           },
         );
-      },
-    },
-  };
-}
-
-/** Rewrites font preload hrefs to hashed production asset paths. */
-function preloadFonts() {
-  const devFontPaths = [
-    ["/src/assets/fonts/Lalezar-Regular.woff2", "Lalezar-Regular"],
-    ["/src/assets/fonts/Vazirmatn-Regular.woff2", "Vazirmatn-Regular"],
-  ];
-
-  return {
-    name: "preload-fonts",
-    transformIndexHtml: {
-      order: "post",
-      handler(html, ctx) {
-        if (!ctx.bundle) {
-          return html;
-        }
-
-        let result = html;
-        for (const [devPath, namePattern] of devFontPaths) {
-          const fontAsset = Object.values(ctx.bundle).find(
-            (chunk) =>
-              chunk.type === "asset" &&
-              chunk.fileName.includes(namePattern) &&
-              chunk.fileName.endsWith(".woff2"),
-          );
-
-          if (fontAsset) {
-            result = result.replace(devPath, `/${fontAsset.fileName}`);
-          }
-        }
-        return result;
       },
     },
   };
