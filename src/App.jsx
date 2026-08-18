@@ -1,8 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Navigate, Routes, Route } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 
 import LoadingState from "./components/LoadingState.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
+import { scheduleLoadExtendedFonts } from "./lib/loadExtendedFonts.js";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import LandingPage from "./pages/LandingPage.jsx";
 
@@ -45,6 +46,16 @@ const AdminLayout = lazy(() => import("./components/AdminLayout.jsx"));
 const StudentLayout = lazy(() => import("./components/StudentLayout.jsx"));
 
 function App() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === "/") {
+      return undefined;
+    }
+
+    return scheduleLoadExtendedFonts();
+  }, [location.pathname]);
+
   return (
     <>
       <ScrollToTop />

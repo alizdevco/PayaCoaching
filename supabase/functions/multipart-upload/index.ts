@@ -130,6 +130,35 @@ function parseParts(value: unknown): CompletedPart[] {
   return parts;
 }
 
+async function assertUploadOwnership(
+  supabase: ReturnType<typeof createServiceClient>,
+  uploadId: string,
+  objectKey: string,
+  callerId: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("multipart_uploads")
+    .select("upload_id")
+    .eq("upload_id", uploadId)
+    .eq("object_key", objectKey)
+    .eq("created_by", callerId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("multipart_uploads ownership lookup failed:", error);
+    throw new UploadRequestError(
+      "You do not have permission to modify this upload",
+      403,
+    );
+  }
+  if (!data) {
+    throw new UploadRequestError(
+      "You do not have permission to modify this upload",
+      403,
+    );
+  }
+}
+
 Deno.serve(async (request) => {
   const preflight = handlePreflight(request);
   if (preflight) return preflight;
@@ -174,6 +203,21 @@ Deno.serve(async (request) => {
         throw new Error("storage did not return an upload id");
       }
 
+      const { error: ownershipInsertError } = await supabase
+        .from("multipart_uploads")
+        .insert({
+          upload_id: created.UploadId,
+          object_key: objectKey,
+          scope: target.scope,
+          created_by: caller.id,
+        });
+      if (ownershipInsertError) {
+        console.error(
+          "multipart_uploads ownership insert failed:",
+          ownershipInsertError,
+        );
+      }
+
       return jsonResponse(request, {
         upload_id: created.UploadId,
         object_key: objectKey,
@@ -191,6 +235,8 @@ Deno.serve(async (request) => {
     );
     const storage = getStorageTarget(scope);
     const uploadId = parseUploadId(body.upload_id);
+
+    await assertUploadOwnership(supabase, uploadId, objectKey, caller.id);
 
     if (action === "sign") {
       const partNumbers = parsePartNumbers(body.part_numbers);
@@ -226,6 +272,17 @@ Deno.serve(async (request) => {
         }),
       );
 
+      const { error: ownershipDeleteError } = await supabase
+        .from("multipart_uploads")
+        .delete()
+        .eq("upload_id", uploadId);
+      if (ownershipDeleteError) {
+        console.error(
+          "multipart_uploads ownership cleanup failed:",
+          ownershipDeleteError,
+        );
+      }
+
       return jsonResponse(request, {
         object_key: objectKey,
         ...(storage.publicUrl
@@ -241,6 +298,17 @@ Deno.serve(async (request) => {
         UploadId: uploadId,
       }),
     );
+
+    const { error: ownershipDeleteError } = await supabase
+      .from("multipart_uploads")
+      .delete()
+      .eq("upload_id", uploadId);
+    if (ownershipDeleteError) {
+      console.error(
+        "multipart_uploads ownership cleanup failed:",
+        ownershipDeleteError,
+      );
+    }
 
     return jsonResponse(request, { aborted: true }, 200);
   } catch (error) {

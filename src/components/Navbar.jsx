@@ -4,9 +4,25 @@ import { ChevronDown, X } from "lucide-react";
 
 import Button from "./Button.jsx";
 import logoImage from "../assets/logo.png";
-import { signOut } from "../features/auth/authApi.js";
 import { useAuth } from "../features/auth/useAuth.js";
+import { resolvePostAuthPath, isProfileResolved } from "../features/auth/authRoutes.js";
 import { navigateToSection } from "../utils/scrollToSection.js";
+
+const LOGOUT_ERROR_MESSAGE =
+  "خروج از حساب انجام نشد. لطفاً دوباره تلاش کنید.";
+
+async function performLogout({ navigate, onNavigate }) {
+  onNavigate?.();
+
+  try {
+    const { signOut } = await import("../features/auth/authApi.js");
+    await signOut();
+    navigate("/");
+  } catch (error) {
+    console.error("[logout]", error?.message);
+    window.alert(LOGOUT_ERROR_MESSAGE);
+  }
+}
 
 const navLinks = [
   { hash: "home", label: "خانه" },
@@ -41,7 +57,7 @@ function PayamLogo() {
         alt=""
         className="h-7 w-7 shrink-0 rounded-lg object-contain"
       />
-      <span className="navbar-glass-text text-sm font-bold leading-none">
+      <span className="navbar-glass-text text-sm font-semibold leading-none">
         پایا کوچینگ
       </span>
     </span>
@@ -64,7 +80,7 @@ function NavAnchor({ hash, label, pathname, onNavigate }) {
     <a
       href={hashHref(hash, pathname)}
       onClick={(event) => handleSectionNavigate(event, hash, pathname, onNavigate)}
-      className="navbar-glass-muted rounded-full px-3 py-2 text-sm font-medium transition-colors hover:bg-white/20"
+      className="navbar-glass-muted rounded-full px-3 py-2 text-sm font-normal transition-colors hover:bg-white/20"
     >
       {label}
     </a>
@@ -93,7 +109,7 @@ function AuthRegisterButton({ className = "", onNavigate }) {
   );
 }
 
-function NavbarUserMenu({ displayName, onNavigate, compact = false }) {
+function NavbarUserMenu({ displayName, onNavigate, compact = false, dashboardPath }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -129,20 +145,17 @@ function NavbarUserMenu({ displayName, onNavigate, compact = false }) {
   }
 
   function handleDashboard() {
+    if (!dashboardPath) {
+      return;
+    }
     closeMenu();
     onNavigate?.();
-    navigate("/student");
+    navigate(dashboardPath);
   }
 
   async function handleLogout() {
     closeMenu();
-    onNavigate?.();
-    try {
-      await signOut();
-      navigate("/");
-    } catch (error) {
-      console.error("[logout]", error?.message);
-    }
+    await performLogout({ navigate, onNavigate });
   }
 
   return (
@@ -153,7 +166,7 @@ function NavbarUserMenu({ displayName, onNavigate, compact = false }) {
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
         className={[
-          "navbar-glass-text inline-flex items-center gap-1 rounded-full font-medium transition-colors hover:bg-white/20",
+          "navbar-glass-text inline-flex items-center gap-1 rounded-full font-normal transition-colors hover:bg-white/20",
           compact
             ? "navbar-mobile-cta px-3"
             : "px-4 py-1.5 text-sm",
@@ -200,22 +213,19 @@ function NavbarUserMenu({ displayName, onNavigate, compact = false }) {
   );
 }
 
-function DrawerAuthLinks({ onNavigate }) {
+function DrawerAuthLinks({ onNavigate, dashboardPath }) {
   const navigate = useNavigate();
 
   function handleDashboard() {
+    if (!dashboardPath) {
+      return;
+    }
     onNavigate?.();
-    navigate("/student");
+    navigate(dashboardPath);
   }
 
   async function handleLogout() {
-    onNavigate?.();
-    try {
-      await signOut();
-      navigate("/");
-    } catch (error) {
-      console.error("[logout]", error?.message);
-    }
+    await performLogout({ navigate, onNavigate });
   }
 
   return (
@@ -242,10 +252,22 @@ export default function Navbar({ overlay = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const { pathname } = useLocation();
-  const { session, profile, isLoading } = useAuth();
+  const { session, profile, role, isLoading, isSessionValidated, isProfileLoading } = useAuth();
   const isLanding = pathname === "/";
   const overHero = isLanding && !scrolledPastHero;
+  const profileResolved = isProfileResolved({
+    session,
+    isLoading,
+    isSessionValidated,
+    isProfileLoading,
+  });
   const isLoggedIn = !isLoading && Boolean(session);
+  const dashboardPath = resolvePostAuthPath({
+    session,
+    role,
+    profile,
+    isProfileResolved: profileResolved,
+  });
   const displayName = getProfileFirstName(profile);
 
   useEffect(() => {
@@ -323,7 +345,7 @@ export default function Navbar({ overlay = false }) {
 
             <div className="hidden md:block">
               {isLoggedIn ? (
-                <NavbarUserMenu displayName={displayName} />
+                <NavbarUserMenu displayName={displayName} dashboardPath={dashboardPath} />
               ) : (
                 <AuthRegisterButton className="rounded-full px-5" />
               )}
@@ -335,6 +357,7 @@ export default function Navbar({ overlay = false }) {
                   displayName={displayName}
                   onNavigate={closeMenu}
                   compact
+                  dashboardPath={dashboardPath}
                 />
               ) : (
                 <AuthRegisterButton
@@ -399,7 +422,9 @@ export default function Navbar({ overlay = false }) {
               onNavigate={closeMenu}
             />
           ))}
-          {isLoggedIn && <DrawerAuthLinks onNavigate={closeMenu} />}
+          {isLoggedIn && (
+            <DrawerAuthLinks onNavigate={closeMenu} dashboardPath={dashboardPath} />
+          )}
         </nav>
       </aside>
 

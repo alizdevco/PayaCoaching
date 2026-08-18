@@ -212,15 +212,66 @@ export function onAuthStateChange(callback) {
 // ---------------------------------------------------------------------------
 
 // Request a phone OTP via the registration Edge Function (server-side duplicate check).
+async function postRegistrationOtp(phone) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("ارسال کد تأیید ناموفق بود. لطفاً دوباره تلاش کنید.");
+  }
+
+  let response;
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/request-registration-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({ phone }),
+    });
+  } catch {
+    throw new TypeError("failed to fetch");
+  }
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      typeof body?.error === "string" && body.error
+        ? body.error
+        : "ارسال کد تأیید ناموفق بود. لطفاً دوباره تلاش کنید.",
+    );
+  }
+
+  if (body?.error) {
+    throw new Error(
+      typeof body.error === "string" ? body.error : body.error.message,
+    );
+  }
+
+  return body;
+}
+
 export async function sendOtp(phone) {
   const result = validateIranianPhone(phone);
   if (!result.valid) {
     throw new Error(result.message);
   }
 
-  await invokeEdgeFunction("request-registration-otp", {
-    phone: result.phone,
-  });
+  const {
+    data: { session: existingSession },
+  } = await supabase.auth.getSession();
+  if (existingSession) {
+    await supabase.auth.signOut({ scope: "local" });
+  }
+
+  await postRegistrationOtp(result.phone);
 
   return { success: true, phone: result.phone };
 }

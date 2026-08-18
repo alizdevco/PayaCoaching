@@ -10,6 +10,29 @@ import { supabase } from "./supabase.js";
 const SESSION_EXPIRED_MESSAGE =
   "نشست شما منقضی شده است. لطفاً دوباره وارد شوید.";
 
+const INTERNAL_PLATFORM_ERROR_PATTERNS = [
+  "edge function",
+  "non-2xx status code",
+  "functionsfetcherror",
+  "functionshttperror",
+];
+
+function isInternalPlatformError(error) {
+  const message = String(error?.message ?? "").toLowerCase();
+  const name = String(error?.name ?? "").toLowerCase();
+  return (
+    INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) => message.includes(pattern)) ||
+    INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) => name.includes(pattern))
+  );
+}
+
+function sanitizeInvokeError(error) {
+  if (isInternalPlatformError(error)) {
+    return "اتصال برقرار نشد یا پاسخ سرور دریافت نشد. لطفاً اتصال اینترنت خود را بررسی کرده و دوباره تلاش کنید.";
+  }
+  return error?.message ?? "عملیات ناموفق بود. لطفاً دوباره تلاش کنید.";
+}
+
 function pickErrorMessage(body) {
   if (!body) {
     return null;
@@ -99,7 +122,7 @@ export async function invokeEdgeFunction(name, body, { retried = false } = {}) {
       throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
-    throw new Error(pickErrorMessage(errorBody) ?? error.message);
+    throw new Error(pickErrorMessage(errorBody) ?? sanitizeInvokeError(error));
   }
 
   if (data?.error) {

@@ -11,6 +11,22 @@ const NETWORK_ERROR_PATTERNS = [
   "fetch failed",
 ];
 
+const INTERNAL_PLATFORM_ERROR_PATTERNS = [
+  "edge function",
+  "non-2xx status code",
+  "functionsfetcherror",
+  "functionshttperror",
+];
+
+function isInternalPlatformError(error) {
+  const message = String(error?.message ?? "").toLowerCase();
+  const name = String(error?.name ?? "").toLowerCase();
+  return (
+    INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) => message.includes(pattern)) ||
+    INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) => name.includes(pattern))
+  );
+}
+
 export function isNetworkError(error) {
   if (!error) {
     return false;
@@ -63,6 +79,10 @@ export function isDefinitiveProfileLoadFailure(error) {
  * @param {"login" | "otp-send" | "otp-verify" | "profile" | "register" | "password-reset"} context
  */
 export function getAuthMutationErrorMessage(error, context) {
+  if (isInternalPlatformError(error)) {
+    return "اتصال برقرار نشد یا پاسخ سرور دریافت نشد. لطفاً اتصال اینترنت خود را بررسی کرده و دوباره تلاش کنید.";
+  }
+
   if (isNetworkError(error)) {
     return "اتصال برقرار نشد یا پاسخ سرور دریافت نشد. لطفاً اتصال اینترنت خود را بررسی کرده و دوباره تلاش کنید.";
   }
@@ -75,7 +95,11 @@ export function getAuthMutationErrorMessage(error, context) {
     case "login":
       return "شماره/ایمیل یا رمز عبور نادرست است.";
     case "otp-send":
-      if (error?.message && !error?.status) {
+      if (
+        error?.message &&
+        !error?.status &&
+        !isInternalPlatformError(error)
+      ) {
         const code = String(error?.code ?? "");
         if (!code || code.startsWith("PGRST")) {
           return error.message;

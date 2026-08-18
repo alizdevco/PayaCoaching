@@ -19,7 +19,7 @@ const ContactSection = lazy(
 const LandingFooter = lazy(() => import("../components/LandingFooter.jsx"));
 
 export default function LandingPage() {
-  const belowFoldReady = useBelowFoldGate();
+  const { ready: belowFoldReady, sentinelRef } = useBelowFoldGate();
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#F7F5F0] text-[#1C1917]">
@@ -27,6 +27,7 @@ export default function LandingPage() {
 
       <main>
         <HeroSection />
+        <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
         {belowFoldReady ? (
           <Suspense fallback={null}>
             <AboutSection />

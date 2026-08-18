@@ -1,9 +1,5 @@
 const FONT_PRELOADS = [
   {
-    devPath: "/src/assets/fonts/Lalezar-Regular.woff2",
-    namePattern: "Lalezar-Regular",
-  },
-  {
     devPath: "/src/assets/fonts/Vazirmatn-Regular.woff2",
     namePattern: "Vazirmatn-Regular",
   },

@@ -14,7 +14,6 @@ import {
   User,
 } from "lucide-react";
 
-import { signOut } from "../features/auth/authApi.js";
 import { useAuth } from "../features/auth/useAuth.js";
 
 const DARK_MODE_KEY = "admin-dark-mode";
@@ -92,6 +91,7 @@ export default function StudentLayout() {
     return localStorage.getItem(DARK_MODE_KEY) === "true";
   });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 });
 
@@ -155,12 +155,15 @@ export default function StudentLayout() {
     if (isLoggingOut) {
       return;
     }
+    setLogoutError("");
     setIsLoggingOut(true);
     try {
+      const { signOut } = await import("../features/auth/authApi.js");
       await signOut();
       navigate("/login", { replace: true });
     } catch (error) {
       console.error("[logout]", error?.message);
+      setLogoutError("خروج انجام نشد. لطفاً دوباره تلاش کنید.");
       setIsLoggingOut(false);
     }
   }
@@ -173,7 +176,7 @@ export default function StudentLayout() {
         className="flex items-center gap-3 px-5 py-6 transition-opacity hover:opacity-80 md:justify-center md:px-3 lg:justify-start lg:px-5"
         aria-label="رفتن به پنل دانش‌آموز"
       >
-        <div className="admin-logo-pulse flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500">
           <GraduationCap size={20} className="text-white" />
         </div>
         <span className="text-lg font-bold text-slate-800 md:max-lg:hidden dark:text-white">
@@ -201,12 +204,26 @@ export default function StudentLayout() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-200 p-3 dark:border-slate-700">
+      <div
+        className={[
+          "border-t border-slate-200 p-3 dark:border-slate-700",
+          isLoggingOut ? "pointer-events-auto" : "",
+        ].join(" ")}
+      >
+        {logoutError && (
+          <p
+            role="alert"
+            className="mb-2 text-xs leading-relaxed text-red-600 dark:text-red-400"
+          >
+            {logoutError}
+          </p>
+        )}
         <button
           type="button"
           onClick={handleLogout}
           disabled={isLoggingOut}
           data-testid="student-logout"
+          aria-busy={isLoggingOut}
           className="group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-all duration-150 ease-in-out hover:-translate-x-0.5 hover:bg-red-50 hover:text-red-600 disabled:opacity-60 md:justify-center lg:justify-start dark:text-slate-300 dark:hover:bg-red-950/40 dark:hover:text-red-400"
         >
           <LogOut size={18} className="shrink-0" />
@@ -224,7 +241,11 @@ export default function StudentLayout() {
   return (
     <div
       dir="rtl"
-      className="flex min-h-screen bg-[#f8fafc] text-slate-800 transition-colors duration-200 dark:bg-[#0a0f1e] dark:text-slate-100"
+      aria-busy={isLoggingOut}
+      className={[
+        "flex min-h-screen bg-[#f8fafc] text-slate-800 transition-colors duration-200 dark:bg-[#0a0f1e] dark:text-slate-100",
+        isLoggingOut ? "pointer-events-none opacity-60" : "",
+      ].join(" ")}
     >
       <button
         type="button"
