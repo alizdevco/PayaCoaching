@@ -29,7 +29,7 @@ import {
   useVerifyOtp,
   useRegisterWithProfile,
 } from "../features/auth/useRegister.js";
-import { dashboardPathForRole } from "../features/auth/authRoutes.js";
+import { dashboardPathForRole, isProfileResolved } from "../features/auth/authRoutes.js";
 import { validateIranianPhone } from "../features/auth/phoneValidation.js";
 import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors.js";
 import {
@@ -64,7 +64,7 @@ function pushRegisterHistory() {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { session, role, profile, isLoading, refreshProfile } = useAuth();
+  const { session, role, profile, isLoading, isSessionValidated, isProfileLoading, refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [phone, setPhone] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
@@ -83,15 +83,20 @@ export default function RegisterPage() {
     [],
   );
 
-  const isResumingIncompleteRegistration = Boolean(
-    !isLoading &&
+  const profileResolved = isProfileResolved({
+    session,
+    isLoading,
+    isSessionValidated,
+    isProfileLoading,
+  });
+
+  const hasIncompleteRegistrationSession = Boolean(
+    profileResolved &&
       session &&
-      step === 1 &&
-      role === "student" &&
-      profile &&
-      !profile.profile_completed_at,
+      session.user?.phone &&
+      (!profile || !profile.profile_completed_at),
   );
-  const effectiveStep = isResumingIncompleteRegistration ? 3 : step;
+  const effectiveStep = hasIncompleteRegistrationSession ? 3 : step;
 
   useEffect(() => {
     if (step < 2) {
@@ -126,7 +131,7 @@ export default function RegisterPage() {
     return () => window.removeEventListener("popstate", onPopState);
   }, [step]);
 
-  if (isLoading) {
+  if (isLoading || (session && !profileResolved)) {
     return <AuthLoadingScreen />;
   }
 
@@ -137,15 +142,15 @@ export default function RegisterPage() {
   // password, permanently locking them out of password login. Resume the
   // wizard at step 3 instead, derived here rather than stored, so no session
   // is ever lost to a dead-end incomplete state.
-  const effectiveOtpVerified = otpVerified || isResumingIncompleteRegistration;
+  const effectiveOtpVerified = otpVerified || hasIncompleteRegistrationSession;
   const effectivePhone =
-    phone || (isResumingIncompleteRegistration ? (session?.user?.phone ?? "") : "");
+    phone || (hasIncompleteRegistrationSession ? (session?.user?.phone ?? "") : "");
 
   // Only redirect returning logged-in users who have not started registration
   // and already have a complete profile (or are an admin). Users with an
   // incomplete student profile are resumed at step 3 above instead.
   // Post-OTP users have a session but no profile row yet — keep them on /register.
-  if (session && step === 1 && !isResumingIncompleteRegistration && profile) {
+  if (session && step === 1 && !hasIncompleteRegistrationSession && profile) {
     return <Navigate to={dashboardPathForRole(role, profile)} replace />;
   }
 

@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy:web": "powershell -ExecutionPolicy Bypass -File scripts/deploy-web.ps1",
+    "verify:cache": "powershell -ExecutionPolicy Bypass -File scripts/verify-cache-headers.ps1",
+    "verify:cache:origin": "powershell -ExecutionPolicy Bypass -File scripts/verify-cache-headers.ps1 -OriginOnly",
     "lint": "eslint .",
     "preview": "vite preview",
     "supabase": "supabase",

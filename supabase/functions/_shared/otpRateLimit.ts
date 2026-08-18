@@ -15,14 +15,6 @@ export class OtpRateLimitError extends Error {
   }
 }
 
-function phoneWindowStart(): string {
-  return new Date(Date.now() - PHONE_WINDOW_MS).toISOString();
-}
-
-function ipWindowStart(): string {
-  return new Date(Date.now() - IP_WINDOW_MS).toISOString();
-}
-
 /** Records the attempt after limits pass; throws OtpRateLimitError when exceeded. */
 export async function assertOtpRateLimit(
   supabase: SupabaseClient,
@@ -30,55 +22,31 @@ export async function assertOtpRateLimit(
   phoneDigits: string,
   clientIp: string | null,
 ): Promise<void> {
-  const { count: phoneCount, error: phoneError } = await supabase
-    .from("otp_send_attempts")
-    .select("*", { count: "exact", head: true })
-    .eq("purpose", purpose)
-    .eq("phone_digits", phoneDigits)
-    .gte("created_at", phoneWindowStart());
-
-  if (phoneError) {
-    console.error("otp rate limit phone count failed:", phoneError.message);
-    throw new Error("Could not process the request");
-  }
-  if ((phoneCount ?? 0) >= PHONE_LIMIT) {
-    throw new OtpRateLimitError();
-  }
-
-  if (clientIp) {
-    const { count: ipCount, error: ipError } = await supabase
-      .from("otp_send_attempts")
-      .select("*", { count: "exact", head: true })
-      .eq("client_ip", clientIp)
-      .gte("created_at", ipWindowStart());
-
-    if (ipError) {
-      console.error("otp rate limit ip count failed:", ipError.message);
-      throw new Error("Could not process the request");
-    }
-    if ((ipCount ?? 0) >= IP_LIMIT) {
-      throw new OtpRateLimitError();
-    }
-  }
-
-  const { error: insertError } = await supabase.from("otp_send_attempts").insert({
-    purpose,
-    phone_digits: phoneDigits,
-    client_ip: clientIp,
+  const { data: allowed, error } = await supabase.rpc("check_and_record_otp_attempt", {
+    p_purpose: purpose,
+    p_phone_digits: phoneDigits,
+    p_client_ip: clientIp,
+    p_phone_limit: PHONE_LIMIT,
+    p_phone_window_seconds: PHONE_WINDOW_MS / 1000,
+    p_ip_limit: IP_LIMIT,
+    p_ip_window_seconds: IP_WINDOW_MS / 1000,
   });
 
-  if (insertError) {
-    console.error("otp rate limit insert failed:", insertError.message);
+  if (error) {
+    console.error("otp rate limit check failed:", error.message);
     throw new Error("Could not process the request");
+  }
+  if (!allowed) {
+    throw new OtpRateLimitError();
   }
 }
 
 export function getClientIp(request: Request): string | null {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
+  const cfIp = request.headers.get("cf-connecting-ip")?.trim();
+  if (cfIp) return cfIp;
+
   const realIp = request.headers.get("x-real-ip")?.trim();
-  return realIp || null;
+  if (realIp) return realIp;
+
+  return null;
 }

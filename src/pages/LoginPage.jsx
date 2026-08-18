@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { Navigate, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth.js";
 import { useLogin } from "../features/auth/useLogin.js";
-import { dashboardPathForRole } from "../features/auth/authRoutes.js";
+import { dashboardPathForRole, isProfileResolved } from "../features/auth/authRoutes.js";
 import { validateIranianPhone } from "../features/auth/phoneValidation.js";
 import { isPasswordChangedSignOutFailed } from "../features/auth/authApi.js";
 import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors.js";
@@ -78,7 +78,7 @@ function getInitialForgotState() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { session, role, profile, isLoading, refreshProfile } = useAuth();
+  const { session, role, profile, isLoading, isSessionValidated, isProfileLoading, refreshProfile } = useAuth();
   const initialForgot = getInitialForgotState();
   const [mode, setMode] = useState(initialForgot.mode);
   const [forgotStep, setForgotStep] = useState(initialForgot.forgotStep);
@@ -170,6 +170,13 @@ export default function LoginPage() {
     return <AuthLoadingScreen />;
   }
 
+  const profileResolved = isProfileResolved({
+    session,
+    isLoading,
+    isSessionValidated,
+    isProfileLoading,
+  });
+
   const storedWizard = readForgotPasswordWizard();
   const pendingForgotResume =
     !wizardRestored &&
@@ -186,7 +193,10 @@ export default function LoginPage() {
   }
 
   if (session && !role && mode !== "forgot") {
-    return <AuthLoadingScreen />;
+    if (!profileResolved) {
+      return <AuthLoadingScreen />;
+    }
+    return <Navigate to="/register" replace />;
   }
 
   function onSubmit(values) {

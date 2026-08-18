@@ -4,7 +4,9 @@ const ALLOWED_ORIGINS = [
   "https://payacoaching.ir",
   "https://www.payacoaching.ir",
   "http://127.0.0.1:5173",
+  "http://localhost:5173",
   "http://127.0.0.1:4173",
+  "http://localhost:4173",
 ];
 
 const CORS_BASE_HEADERS = {

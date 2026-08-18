@@ -71,6 +71,35 @@ export default defineConfig({
     preloadFonts(),
     nonBlockingCss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return undefined;
+          }
+
+          if (id.includes("@supabase")) {
+            return "supabase";
+          }
+
+          if (id.includes("@tanstack/react-query")) {
+            return "query";
+          }
+
+          if (
+            id.includes("react-router") ||
+            id.includes("react-dom") ||
+            id.includes("/react/")
+          ) {
+            return "react-vendor";
+          }
+
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     host: "127.0.0.1",
     port: 5173,

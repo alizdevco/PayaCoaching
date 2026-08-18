@@ -1,16 +1,23 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth.js";
-import { dashboardPathForRole } from "../features/auth/authRoutes.js";
+import { dashboardPathForRole, resolvePostAuthPath, isProfileResolved } from "../features/auth/authRoutes.js";
 
 export default function ProtectedRoute({
   children,
   requiredRole,
   skipProfileCompletionCheck = false,
 }) {
-  const { session, role, profile, isLoading, isSessionValidated } = useAuth();
+  const { session, role, profile, isLoading, isSessionValidated, isProfileLoading } = useAuth();
+
+  const profileResolved = isProfileResolved({
+    session,
+    isLoading,
+    isSessionValidated,
+    isProfileLoading,
+  });
 
   // AuthContext validates the local JWT with getUser() once at bootstrap.
-  if (isLoading || !isSessionValidated) {
+  if (isLoading || !isSessionValidated || (session && !profileResolved)) {
     return (
       <div className="flex min-h-screen items-center justify-center text-gray-500">
         در حال بارگذاری...
@@ -24,9 +31,15 @@ export default function ProtectedRoute({
 
   if (!role) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-gray-500">
-        در حال بارگذاری...
-      </div>
+      <Navigate
+        to={resolvePostAuthPath({
+          session,
+          role,
+          profile,
+          isProfileResolved: profileResolved,
+        })}
+        replace
+      />
     );
   }
 
