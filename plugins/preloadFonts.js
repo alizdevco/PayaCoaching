@@ -7,6 +7,10 @@ const FONT_PRELOADS = [
     devPath: "/src/assets/fonts/Vazirmatn-SemiBold.woff2",
     namePattern: "Vazirmatn-SemiBold",
   },
+  {
+    devPath: "/src/assets/fonts/Vazirmatn-Bold.woff2",
+    namePattern: "Vazirmatn-Bold",
+  },
 ];
 
 function findHashedFontAsset(bundle, namePattern) {

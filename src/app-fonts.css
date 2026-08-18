@@ -13,6 +13,13 @@
 }
 
 @font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/Vazirmatn-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Lalezar";
   src: url("./assets/fonts/Lalezar-Regular.woff2") format("woff2");
   font-weight: 400;
