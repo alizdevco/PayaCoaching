@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 
+import ChunkErrorBoundary from "./components/ChunkErrorBoundary.jsx";
 import LoadingState from "./components/LoadingState.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
 import { scheduleLoadExtendedFonts } from "./lib/loadExtendedFonts.js";
@@ -59,8 +60,9 @@ function App() {
   return (
     <>
       <ScrollToTop />
-      <Suspense fallback={<LoadingState fullPage message="در حال بارگذاری..." />}>
-        <Routes>
+      <ChunkErrorBoundary key={location.pathname}>
+        <Suspense fallback={<LoadingState fullPage message="در حال بارگذاری..." />}>
+          <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -115,8 +117,9 @@ function App() {
         <Route path="/exam-analysis/:exam_date" element={<ExamAnalysisPage />} />
 
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Suspense>
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
     </>
   );
 }

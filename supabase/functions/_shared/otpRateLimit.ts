@@ -48,5 +48,11 @@ export function getClientIp(request: Request): string | null {
   const realIp = request.headers.get("x-real-ip")?.trim();
   if (realIp) return realIp;
 
+  // Supabase Edge Functions set this when the above proxy headers are absent.
+  const forwardedIp = request.headers.get("x-forwarded-for")
+    ?.split(/\s*,\s*/)[0]
+    ?.trim();
+  if (forwardedIp) return forwardedIp;
+
   return null;
 }
