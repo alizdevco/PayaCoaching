@@ -171,6 +171,44 @@ function mapAttemptListRow(row) {
   };
 }
 
+function mapAssignmentRpcError(error) {
+  const message = error?.message ?? "";
+
+  if (message.includes("cannot remove assignment: student has already started this exam")) {
+    throw new Error("این دانش‌آموز قبلاً آزمون را شروع کرده و قابل حذف نیست.");
+  }
+
+  if (message.includes("invalid student id in assignment list")) {
+    throw new Error("یک یا چند شناسه دانش‌آموز نامعتبر است.");
+  }
+
+  if (message.includes("exam not found")) {
+    throw new Error("آزمون آنلاین یافت نشد.");
+  }
+
+  throw error;
+}
+
+function computeStudentExamStatus(exam, attempt) {
+  const now = Date.now();
+  const startAt = new Date(exam.start_at).getTime();
+  const endAt = startAt + exam.duration_minutes * 60 * 1000;
+
+  if (startAt > now) {
+    return "upcoming";
+  }
+  if (attempt?.status === "finalized") {
+    return "finished";
+  }
+  if (now >= endAt) {
+    return "finished";
+  }
+  if (attempt?.id && attempt.status !== "finalized") {
+    return "in_progress";
+  }
+  return "open";
+}
+
 export async function listOnlineExams() {
   const { data, error } = await supabase
     .from("online_exams")
@@ -461,4 +499,104 @@ export async function getOnlineExamAttemptWithLazyFinalize(examId) {
 export async function listOnlineExamAttemptsWithLazyFinalize(examId) {
   await finalizeDueOnlineExamAttempts(examId);
   return listOnlineExamAttempts(examId);
+}
+
+export async function listOnlineExamAssignedStudents(examId) {
+  const { data, error } = await supabase.rpc("list_online_exam_assigned_students", {
+    p_exam_id: examId,
+  });
+
+  if (error) {
+    mapAssignmentRpcError(error);
+  }
+
+  return data ?? [];
+}
+
+export async function setOnlineExamAssignments(examId, studentIds) {
+  const { data, error } = await supabase.rpc("set_online_exam_assignments", {
+    p_exam_id: examId,
+    p_student_ids: studentIds,
+  });
+
+  if (error) {
+    mapAssignmentRpcError(error);
+  }
+
+  return data ?? 0;
+}
+
+export async function listStudentOnlineExamAssignments(studentId) {
+  const { data, error } = await supabase
+    .from("online_exam_assignments")
+    .select(`
+      id,
+      assigned_at,
+      exam_id,
+      exam:online_exams (
+        id,
+        title,
+        start_at,
+        duration_minutes,
+        question_count
+      )
+    `)
+    .eq("student_id", studentId)
+    .order("assigned_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = data ?? [];
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const examIds = rows.map((row) => row.exam_id);
+  const { data: attempts, error: attemptsError } = await supabase
+    .from("online_exam_attempts")
+    .select("exam_id, id, status, started_at, percentage")
+    .eq("student_id", studentId)
+    .in("exam_id", examIds);
+
+  if (attemptsError) {
+    throw attemptsError;
+  }
+
+  const attemptByExamId = new Map(
+    (attempts ?? []).map((attempt) => [attempt.exam_id, attempt]),
+  );
+
+  return rows
+    .filter((row) => row.exam)
+    .map((row) => {
+      const attempt = attemptByExamId.get(row.exam_id) ?? null;
+      const status = computeStudentExamStatus(row.exam, attempt);
+
+      return {
+        assignmentId: row.id,
+        assignedAt: row.assigned_at,
+        examId: row.exam_id,
+        title: row.exam.title,
+        startAt: row.exam.start_at,
+        durationMinutes: row.exam.duration_minutes,
+        questionCount: row.exam.question_count,
+        status,
+        percentage: attempt?.status === "finalized" ? attempt.percentage : null,
+        hasAttempt: Boolean(attempt?.id),
+      };
+    });
+}
+
+export async function removeOnlineExamAssignment(examId, studentId) {
+  const { error } = await supabase
+    .from("online_exam_assignments")
+    .delete()
+    .eq("exam_id", examId)
+    .eq("student_id", studentId);
+
+  if (error) {
+    mapAssignmentRpcError(error);
+  }
 }
