@@ -4,7 +4,7 @@
 //   Step 3: set password and save the full profile via ensure_own_profile().
 // Phone OTP signups defer profile creation until Step 3 (not on auth.users insert).
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { sendOtp, verifyOtp, registerStudentWithProfile } from "./authApi.js";
 
@@ -27,10 +27,15 @@ export function useVerifyOtp(options = {}) {
 }
 
 export function useRegisterWithProfile(options = {}) {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: registerStudentWithProfile,
     retry: false,
-    onSuccess: options.onSuccess,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      options.onSuccess?.(...args);
+    },
     onError: options.onError,
   });
 }

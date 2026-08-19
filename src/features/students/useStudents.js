@@ -1,22 +1,14 @@
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { listStudents } from "./studentsApi.js";
 
-export function useStudents({ search = "", page = 1, pageSize = 10 } = {}) {
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
+const STALE_TIME_MS = 5 * 60 * 1000;
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
+export function useStudents() {
   return useQuery({
-    queryKey: ["students", { search: debouncedSearch, page }],
-    queryFn: () =>
-      listStudents({ search: debouncedSearch, page, pageSize }),
+    queryKey: ["students"],
+    queryFn: listStudents,
+    staleTime: STALE_TIME_MS,
+    refetchOnWindowFocus: false,
   });
 }
