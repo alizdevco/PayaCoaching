@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   BarChart3,
+  CheckCircle2,
   FileText,
   Plus,
   Trash2,
@@ -19,13 +20,19 @@ import LoadingState from "../components/LoadingState.jsx";
 import Modal, { ModalActions } from "../components/Modal.jsx";
 import { formatPersianDate, formatPersianTime } from "../lib/persianDate.js";
 import { useWarnOnLeave } from "../hooks/useWarnOnLeave.js";
-import { useOnlineExamList, useOnlineExam } from "../features/online-exams/useOnlineExamList.js";
+import {
+  useOnlineExamAssignedStudents,
+  useOnlineExamList,
+  useOnlineExam,
+} from "../features/online-exams/useOnlineExamList.js";
 import {
   useCreateOnlineExam,
   useDeleteOnlineExam,
+  useSetOnlineExamAssignments,
   useUpdateOnlineExam,
   useUploadOnlineExamPdf,
 } from "../features/online-exams/useOnlineExamMutations.js";
+import { useStudents } from "../features/students/useStudents.js";
 
 const adminFieldStyles = getProfileFieldStyles("admin");
 const MAX_QUESTION_COUNT = 150;
@@ -100,6 +107,26 @@ function answerKeyToPayload(answerKey, questionCount) {
     payload[key] = Number(answerKey[key]);
   }
   return payload;
+}
+
+function matchesStudentSearch(student, query) {
+  const trimmedQuery = query.trim().toLowerCase();
+  if (!trimmedQuery) {
+    return true;
+  }
+
+  const searchableFields = [student.first_name, student.last_name, student.phone];
+
+  return searchableFields.some((value) =>
+    String(value ?? "")
+      .toLowerCase()
+      .includes(trimmedQuery),
+  );
+}
+
+function formatStudentDisplayName(student) {
+  const name = [student?.first_name, student?.last_name].filter(Boolean).join(" ");
+  return name || student?.phone || "دانش‌آموز";
 }
 
 function validateAnswerKey(answerKey, questionCount) {
@@ -279,6 +306,11 @@ function ExamFormView({ examId: initialExamId, onBack, onSaved }) {
     createEmptyAnswerKey(DEFAULT_QUESTION_COUNT),
   );
   const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [assignmentError, setAssignmentError] = useState("");
+  const [assignmentSuccessMessage, setAssignmentSuccessMessage] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState(() => new Set());
+  const [assignmentsInitialized, setAssignmentsInitialized] = useState(false);
   const pdfInputRef = useRef(null);
 
   const examId = savedExamId ?? initialExamId ?? null;
@@ -287,6 +319,13 @@ function ExamFormView({ examId: initialExamId, onBack, onSaved }) {
   const createExam = useCreateOnlineExam();
   const updateExam = useUpdateOnlineExam();
   const uploadPdf = useUploadOnlineExamPdf();
+  const setAssignments = useSetOnlineExamAssignments();
+
+  const { data: studentsData, isLoading: isStudentsLoading } = useStudents();
+  const {
+    data: assignedStudents = [],
+    isLoading: isAssignmentsLoading,
+  } = useOnlineExamAssignedStudents(examId);
 
   const {
     data: examDetail,
@@ -356,7 +395,67 @@ function ExamFormView({ examId: initialExamId, onBack, onSaved }) {
     return () => window.clearTimeout(timer);
   }, [successMessage]);
 
+  useEffect(() => {
+    if (!assignmentError) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setAssignmentError(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [assignmentError]);
+
+  useEffect(() => {
+    if (!assignmentSuccessMessage) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setAssignmentSuccessMessage(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [assignmentSuccessMessage]);
+
+  useEffect(() => {
+    setAssignmentSearch("");
+    setAssignmentError("");
+    setAssignmentSuccessMessage("");
+    setSelectedStudentIds(new Set());
+    setAssignmentsInitialized(false);
+  }, [examId]);
+
+  useEffect(() => {
+    if (!assignedStudents.length && assignmentsInitialized) {
+      return;
+    }
+    if (isAssignmentsLoading || assignmentsInitialized) {
+      return;
+    }
+
+    setSelectedStudentIds(
+      new Set(assignedStudents.map((assignment) => assignment.student_id)),
+    );
+    setAssignmentsInitialized(true);
+  }, [assignedStudents, assignmentsInitialized, isAssignmentsLoading]);
+
+  const allStudents = studentsData?.students ?? [];
+
+  const lockedStudentIds = useMemo(
+    () =>
+      new Set(
+        assignedStudents
+          .filter((assignment) => assignment.has_attempt)
+          .map((assignment) => assignment.student_id),
+      ),
+    [assignedStudents],
+  );
+
+  const filteredStudents = useMemo(
+    () => allStudents.filter((student) => matchesStudentSearch(student, assignmentSearch)),
+    [allStudents, assignmentSearch],
+  );
+
   const isSaving = createExam.isPending || updateExam.isPending;
+  const isAssignmentDataLoading = isStudentsLoading || isAssignmentsLoading;
+  const isSavingAssignments =
+    isAssignmentDataLoading || setAssignments.isPending;
 
   function onSubmit(values) {
     setServerError("");
@@ -445,6 +544,57 @@ function ExamFormView({ examId: initialExamId, onBack, onSaved }) {
     } finally {
       setUploadProgress(0);
     }
+  }
+
+  function toggleStudentSelection(studentId) {
+    if (lockedStudentIds.has(studentId)) {
+      return;
+    }
+
+    setSelectedStudentIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  }
+
+  function selectAllFilteredStudents() {
+    setSelectedStudentIds((previous) => {
+      const next = new Set(previous);
+      filteredStudents.forEach((student) => next.add(student.id));
+      return next;
+    });
+  }
+
+  function clearStudentSelection() {
+    setSelectedStudentIds(new Set(lockedStudentIds));
+  }
+
+  function handleSaveAssignments() {
+    if (!examId) {
+      return;
+    }
+
+    setAssignmentError("");
+    setAssignmentSuccessMessage("");
+    setAssignments.mutate(
+      { examId, studentIds: [...selectedStudentIds] },
+      {
+        onSuccess: () =>
+          setAssignmentSuccessMessage(
+            "دسترسی آزمون با موفقیت برای دانش‌آموزان ثبت شد.",
+          ),
+        onError: (error) => {
+          setAssignmentError(
+            getMutationErrorMessage(error, "ذخیره دسترسی دانش‌آموزان ناموفق بود."),
+          );
+        },
+      },
+    );
   }
 
   const pageTitle =
@@ -699,6 +849,135 @@ function ExamFormView({ examId: initialExamId, onBack, onSaved }) {
                 />
               </div>
             </Card>
+          )}
+
+          {canManagePdf && (
+            <Card className="space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+                  دسترسی دانش‌آموزان
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  فقط دانش‌آموزان انتخاب‌شده این آزمون را در پنل خود می‌بینند.
+                </p>
+              </div>
+
+              <div>
+                <label className={adminFieldStyles.label} htmlFor="assignment-search">
+                  جستجو
+                </label>
+                <input
+                  id="assignment-search"
+                  type="search"
+                  className={adminFieldStyles.input}
+                  placeholder="نام یا شماره موبایل..."
+                  value={assignmentSearch}
+                  onChange={(event) => setAssignmentSearch(event.target.value)}
+                  disabled={isAssignmentDataLoading}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isAssignmentDataLoading || filteredStudents.length === 0}
+                  onClick={selectAllFilteredStudents}
+                >
+                  انتخاب همه
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isAssignmentDataLoading || selectedStudentIds.size === 0}
+                  onClick={clearStudentSelection}
+                >
+                  پاک کردن انتخاب
+                </Button>
+              </div>
+
+              {isAssignmentDataLoading ? (
+                <LoadingState message="در حال بارگذاری لیست دانش‌آموزان..." />
+              ) : filteredStudents.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  {assignmentSearch.trim()
+                    ? "دانش‌آموزی با این جستجو یافت نشد."
+                    : "هنوز دانش‌آموزی ثبت نشده است."}
+                </p>
+              ) : (
+                <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                  {filteredStudents.map((student) => {
+                    const isLocked = lockedStudentIds.has(student.id);
+                    const isChecked = selectedStudentIds.has(student.id);
+
+                    return (
+                      <label
+                        key={student.id}
+                        className={[
+                          "flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 transition-colors",
+                          isLocked
+                            ? "cursor-not-allowed bg-slate-50 dark:bg-slate-800/40"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-800/60",
+                        ].join(" ")}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600"
+                          checked={isChecked}
+                          disabled={isLocked || setAssignments.isPending}
+                          onChange={() => toggleStudentSelection(student.id)}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-slate-800 dark:text-white">
+                            {formatStudentDisplayName(student)}
+                          </span>
+                          {student.phone && (
+                            <span className="block text-xs text-slate-500 dark:text-slate-400">
+                              {student.phone}
+                            </span>
+                          )}
+                          {isLocked && (
+                            <span className="mt-1 block text-xs text-amber-600 dark:text-amber-400">
+                              این دانش‌آموز قبلاً آزمون را شروع کرده و قابل حذف نیست.
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {assignmentError && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {assignmentError}
+                </p>
+              )}
+
+              <Button
+                type="button"
+                onClick={handleSaveAssignments}
+                isLoading={setAssignments.isPending}
+                disabled={isSavingAssignments}
+              >
+                ذخیره دسترسی
+              </Button>
+            </Card>
+          )}
+
+          {assignmentSuccessMessage && (
+            <div
+              className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="pointer-events-auto flex max-w-md items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-lg dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <CheckCircle2 size={18} className="shrink-0" aria-hidden="true" />
+                <span>{assignmentSuccessMessage}</span>
+              </div>
+            </div>
           )}
         </>
       )}

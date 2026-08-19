@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowRight,
+  BarChart3,
   Calendar,
   CheckCircle2,
   Clock,
@@ -50,6 +51,8 @@ import {
   useStudentProfile,
   useUpdateStudentProfile,
 } from "../features/students/useStudentProfile.js";
+import { useStudentOnlineExamAssignments } from "../features/online-exams/useOnlineExamList.js";
+import { useRemoveOnlineExamAssignment } from "../features/online-exams/useOnlineExamMutations.js";
 
 const adminFieldStyles = getProfileFieldStyles("admin");
 
@@ -57,7 +60,26 @@ const TABS = [
   { id: "reports", label: "گزارش کار" },
   { id: "consultations", label: "تایم مشاوره" },
   { id: "content", label: "محتوا" },
+  { id: "online-exams", label: "آزمون آنلاین" },
 ];
+
+const ONLINE_EXAM_STATUS_LABELS = {
+  upcoming: "هنوز شروع نشده",
+  open: "آماده شرکت",
+  in_progress: "در حال انجام",
+  finished: "پایان یافته",
+};
+
+const ONLINE_EXAM_STATUS_BADGE_CLASS = {
+  upcoming:
+    "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  open:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  in_progress:
+    "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  finished:
+    "bg-red-100 text-red-700/80 dark:bg-red-950/40 dark:text-red-400",
+};
 
 const FILE_TYPE_LABELS = {
   video: "ویدیو",
@@ -1025,6 +1047,171 @@ function ContentTab({ studentId }) {
   );
 }
 
+function OnlineExamStatusBadge({ status }) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+        ONLINE_EXAM_STATUS_BADGE_CLASS[status] ??
+          "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+      ].join(" ")}
+    >
+      {ONLINE_EXAM_STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+function OnlineExamsTab({ studentId }) {
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+
+  const {
+    data: assignments = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useStudentOnlineExamAssignments(studentId);
+  const removeAssignment = useRemoveOnlineExamAssignment();
+
+  function handleDeleteConfirm() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setDeleteError("");
+    removeAssignment.mutate(
+      { examId: deleteTarget.examId, studentId },
+      {
+        onSuccess: () => setDeleteTarget(null),
+        onError: (error) => {
+          setDeleteError(
+            getMutationErrorMessage(error, "حذف دسترسی آزمون ناموفق بود."),
+          );
+        },
+      },
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          آزمون‌های آنلاین اختصاص‌داده‌شده به این دانش‌آموز
+        </p>
+        <Link
+          to="/admin/online-exams"
+          className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-3 text-sm text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+        >
+          <FileText size={14} aria-hidden="true" />
+          مدیریت آزمون‌ها
+        </Link>
+      </div>
+
+      {isLoading && <LoadingState message="در حال بارگذاری آزمون‌ها..." />}
+
+      {isError && (
+        <ErrorState
+          message="خطا در بارگذاری آزمون‌های آنلاین."
+          onRetry={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && assignments.length === 0 && (
+        <EmptyTabState message="هنوز آزمون آنلاینی برای این دانش‌آموز تعیین نشده است." />
+      )}
+
+      {!isLoading && !isError && assignments.length > 0 && (
+        <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+          {assignments.map((assignment) => {
+            const scoreLabel =
+              assignment.percentage == null
+                ? null
+                : Number(assignment.percentage).toLocaleString("fa-IR", {
+                    maximumFractionDigits: 1,
+                  });
+
+            return (
+              <li
+                key={assignment.assignmentId}
+                className="flex items-start justify-between gap-3 px-4 py-3"
+              >
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-slate-800 dark:text-white">
+                      {assignment.title}
+                    </p>
+                    <OnlineExamStatusBadge status={assignment.status} />
+                  </div>
+                  <p className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300">
+                    <Calendar size={14} aria-hidden="true" />
+                    {formatPersianDate(assignment.startAt)}
+                  </p>
+                  <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                    <Clock size={14} aria-hidden="true" />
+                    {formatPersianTime(assignment.startAt)} —{" "}
+                    {assignment.durationMinutes.toLocaleString("fa-IR")} دقیقه
+                  </p>
+                  {assignment.status === "finished" && scoreLabel != null && (
+                    <p className="inline-flex items-center gap-1 text-sm text-red-700/90 dark:text-red-400">
+                      <CheckCircle2 size={14} aria-hidden="true" />
+                      نمره: {scoreLabel}٪
+                    </p>
+                  )}
+                  {assignment.hasAttempt && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      این دانش‌آموز قبلاً آزمون را شروع کرده و قابل حذف نیست.
+                    </p>
+                  )}
+                  {assignment.status === "finished" && (
+                    <Link
+                      to={`/admin/online-exams/${assignment.examId}/results`}
+                      className="inline-flex items-center gap-1 text-sm text-emerald-600 transition-colors hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                    >
+                      <BarChart3 size={14} aria-hidden="true" />
+                      مشاهده نتایج
+                    </Link>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                  disabled={assignment.hasAttempt || removeAssignment.isPending}
+                  onClick={() => {
+                    setDeleteError("");
+                    setDeleteTarget(assignment);
+                  }}
+                  aria-label={`حذف دسترسی ${assignment.title}`}
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {deleteError && (
+        <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+      )}
+
+      <ConfirmDeleteModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => {
+          if (!removeAssignment.isPending) {
+            setDeleteTarget(null);
+            setDeleteError("");
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
+        isLoading={removeAssignment.isPending}
+        title="حذف دسترسی آزمون"
+        message={`آیا از حذف دسترسی «${deleteTarget?.title ?? ""}» برای این دانش‌آموز مطمئن هستید؟`}
+      />
+    </div>
+  );
+}
+
 export default function StudentDetailsPage() {
   const { student_id: studentId } = useParams();
   const [activeTab, setActiveTab] = useState("reports");
@@ -1163,6 +1350,9 @@ export default function StudentDetailsPage() {
           />
         )}
         {activeTab === "content" && <ContentTab studentId={studentId} />}
+        {activeTab === "online-exams" && (
+          <OnlineExamsTab studentId={studentId} />
+        )}
       </Card>
 
       {!isError && (

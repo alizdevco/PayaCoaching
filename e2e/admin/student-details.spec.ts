@@ -18,6 +18,7 @@ test.describe("Student details", () => {
     await expect(page.getByTestId("tab-reports")).toBeVisible();
     await expect(page.getByTestId("tab-consultations")).toBeVisible();
     await expect(page.getByTestId("tab-content")).toBeVisible();
+    await expect(page.getByTestId("tab-online-exams")).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "ویرایش پروفایل" }),
     ).toBeVisible();
@@ -33,6 +34,11 @@ test.describe("Student details", () => {
 
     await page.getByTestId("tab-reports").click();
     await expect(page.getByTestId("upload-report-btn")).toBeVisible();
+
+    await page.getByTestId("tab-online-exams").click();
+    await expect(
+      page.getByRole("link", { name: "مدیریت آزمون‌ها" }),
+    ).toBeVisible();
   });
 
   test("profile form shows validation on empty required fields", async ({

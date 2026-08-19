@@ -5,6 +5,8 @@ import {
   deleteOnlineExam,
   finalizeDueOnlineExamAttempts,
   finalizeOnlineExamAttempt,
+  removeOnlineExamAssignment,
+  setOnlineExamAssignments,
   startOnlineExamDownload,
   updateOnlineExam,
   uploadOnlineExamPdf,
@@ -117,6 +119,36 @@ export function useFinalizeDueOnlineExamAttempts() {
     mutationFn: finalizeDueOnlineExamAttempts,
     onSuccess: (_count, examId) => {
       invalidateOnlineExamAttemptQueries(queryClient, examId);
+    },
+  });
+}
+
+export function useSetOnlineExamAssignments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ examId, studentIds }) =>
+      setOnlineExamAssignments(examId, studentIds),
+    onSuccess: (_data, { examId }) => {
+      queryClient.invalidateQueries({ queryKey: ["online-exam-assignments", examId] });
+      queryClient.invalidateQueries({ queryKey: ["student-online-exam-assignments"] });
+      invalidateOnlineExamQueries(queryClient, examId);
+    },
+  });
+}
+
+export function useRemoveOnlineExamAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ examId, studentId }) =>
+      removeOnlineExamAssignment(examId, studentId),
+    onSuccess: (_data, { examId, studentId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["student-online-exam-assignments", studentId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["online-exam-assignments", examId] });
+      invalidateOnlineExamQueries(queryClient, examId);
     },
   });
 }

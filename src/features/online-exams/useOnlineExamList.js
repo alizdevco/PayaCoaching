@@ -4,8 +4,10 @@ import {
   getOnlineExam,
   getStudentOnlineExam,
   listMyOnlineExamAttempts,
+  listOnlineExamAssignedStudents,
   listOnlineExamAttemptsWithLazyFinalize,
   listOnlineExams,
+  listStudentOnlineExamAssignments,
   listStudentOnlineExams,
 } from "./onlineExamsApi.js";
 
@@ -52,5 +54,21 @@ export function useOnlineExamAttempts(examId) {
     queryKey: ["online-exam-attempts", examId],
     queryFn: () => listOnlineExamAttemptsWithLazyFinalize(examId),
     enabled: Boolean(examId),
+  });
+}
+
+export function useOnlineExamAssignedStudents(examId) {
+  return useQuery({
+    queryKey: ["online-exam-assignments", examId],
+    queryFn: () => listOnlineExamAssignedStudents(examId),
+    enabled: Boolean(examId),
+  });
+}
+
+export function useStudentOnlineExamAssignments(studentId) {
+  return useQuery({
+    queryKey: ["student-online-exam-assignments", studentId],
+    queryFn: () => listStudentOnlineExamAssignments(studentId),
+    enabled: Boolean(studentId),
   });
 }
