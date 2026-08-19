@@ -17,7 +17,6 @@ export function useUpdateStudentProfile() {
   return useMutation({
     mutationFn: ({ studentId, data }) => updateStudentProfile(studentId, data),
     onSuccess: (_data, { studentId }) => {
-      queryClient.invalidateQueries({ queryKey: ["students"] });
       queryClient.invalidateQueries({ queryKey: ["student", studentId] });
     },
   });

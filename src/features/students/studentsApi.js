@@ -4,9 +4,7 @@ import { supabase } from "../../lib/supabase.js";
 const STUDENT_LIST_COLUMNS =
   "id, phone, first_name, last_name, province, city, consultant_name, grade, academic_major, created_at";
 
-function escapeIlikePattern(value) {
-  return String(value ?? "").replace(/[%_\\]/g, "\\$&");
-}
+const STUDENT_LIST_CAP = 500;
 
 function buildStudentUpdatePayload(data) {
   return {
@@ -20,26 +18,13 @@ function buildStudentUpdatePayload(data) {
   };
 }
 
-export async function listStudents({ search, page, pageSize = 10 }) {
-  const safePage = Math.max(1, Number(page) || 1);
-  const from = (safePage - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  let query = supabase
+export async function listStudents() {
+  const { data, error, count } = await supabase
     .from("profiles")
     .select(STUDENT_LIST_COLUMNS, { count: "exact" })
     .eq("role", "student")
-    .order("created_at", { ascending: false });
-
-  const trimmedSearch = String(search ?? "").trim();
-  if (trimmedSearch) {
-    const pattern = `%${escapeIlikePattern(trimmedSearch)}%`;
-    query = query.or(
-      `first_name.ilike.${pattern},last_name.ilike.${pattern},consultant_name.ilike.${pattern},phone.ilike.${pattern}`,
-    );
-  }
-
-  const { data, error, count } = await query.range(from, to);
+    .order("created_at", { ascending: false })
+    .range(0, STUDENT_LIST_CAP - 1);
 
   if (error) {
     throw error;
@@ -48,9 +33,6 @@ export async function listStudents({ search, page, pageSize = 10 }) {
   return {
     students: data ?? [],
     totalCount: count ?? 0,
-    page: safePage,
-    pageSize,
-    totalPages: Math.max(1, Math.ceil((count ?? 0) / pageSize)),
   };
 }
 
