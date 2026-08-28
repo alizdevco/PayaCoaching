@@ -6,7 +6,10 @@ import { useForm } from "react-hook-form";
 import { Navigate, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth.js";
 import { useLogin } from "../features/auth/useLogin.js";
-import { dashboardPathForRole, isProfileResolved } from "../features/auth/authRoutes.js";
+import {
+  dashboardPathForRole,
+  isProfileResolved,
+} from "../features/auth/authRoutes.js";
 import { validateIranianPhone } from "../features/auth/phoneValidation.js";
 import { isPasswordChangedSignOutFailed } from "../features/auth/authApi.js";
 import { getAuthMutationErrorMessage } from "../features/auth/authMutationErrors.js";
@@ -49,10 +52,14 @@ const FORGOT_STEP_LABELS = ["شماره موبایل", "تأیید کد", "رم�
 function readForgotPasswordWizard() {
   try {
     const raw = sessionStorage.getItem(FORGOT_PASSWORD_WIZARD_KEY);
+
     if (!raw) return null;
+
     const parsed = JSON.parse(raw);
+
     if (parsed?.mode !== "forgot") return null;
     if (typeof parsed.step !== "number" || !parsed.phone) return null;
+
     return parsed;
   } catch {
     return null;
@@ -78,19 +85,34 @@ function getInitialForgotState() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { session, role, profile, isLoading, isSessionValidated, isProfileLoading, refreshProfile } = useAuth();
+
+  const {
+    session,
+    role,
+    profile,
+    isLoading,
+    isSessionValidated,
+    isProfileLoading,
+    refreshProfile,
+  } = useAuth();
+
   const initialForgot = getInitialForgotState();
+
   const [mode, setMode] = useState(initialForgot.mode);
   const [forgotStep, setForgotStep] = useState(initialForgot.forgotStep);
   const [phone, setPhone] = useState(initialForgot.phone);
+
   const phoneRef = useRef(phone);
+
   useEffect(() => {
     phoneRef.current = phone;
   }, [phone]);
+
   const [otpVerified, setOtpVerified] = useState(initialForgot.otpVerified);
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [wizardRestored, setWizardRestored] = useState(false);
+
   const otpSentAtRef = useRef(new Map());
 
   const clearForgotPasswordState = useCallback(() => {
@@ -102,20 +124,19 @@ export default function LoginPage() {
     clearOtpCooldown(OTP_COOLDOWN_RESET_STORAGE_KEY);
   }, []);
 
-  const persistForgotWizard = useCallback(
-    (nextStep, nextPhone) => {
-      writeForgotPasswordWizard({
-        mode: "forgot",
-        step: nextStep,
-        phone: nextPhone ?? phoneRef.current,
-      });
-    },
-    [],
-  );
+  const persistForgotWizard = useCallback((nextStep, nextPhone) => {
+    writeForgotPasswordWizard({
+      mode: "forgot",
+      step: nextStep,
+      phone: nextPhone ?? phoneRef.current,
+    });
+  }, []);
 
   const recordOtpSent = useCallback((phoneNumber) => {
     const sentAt = Date.now();
+
     otpSentAtRef.current.set(phoneNumber, sentAt);
+
     writeOtpCooldown(phoneNumber, sentAt, OTP_COOLDOWN_RESET_STORAGE_KEY);
   }, []);
 
@@ -138,12 +159,15 @@ export default function LoginPage() {
   const login = useLogin({
     onSuccess: async (result) => {
       await refreshProfile();
+
       navigate(dashboardPathForRole(result.role, result.profile), {
         replace: true,
       });
     },
+
     onError: (error) => {
       console.error("[login]", error?.message);
+
       setServerError(getAuthMutationErrorMessage(error, "login"));
     },
   });
@@ -152,17 +176,20 @@ export default function LoginPage() {
     if (isLoading || wizardRestored) return;
 
     const stored = readForgotPasswordWizard();
+
     if (stored?.mode === "forgot" && stored.step === 3 && session) {
       setMode("forgot");
       setForgotStep(3);
       setPhone(stored.phone);
       setOtpVerified(true);
     }
+
     setWizardRestored(true);
   }, [isLoading, session, wizardRestored]);
 
   useEffect(() => {
     if (mode !== "forgot") return;
+
     persistForgotWizard(forgotStep);
   }, [mode, forgotStep, persistForgotWizard]);
 
@@ -178,6 +205,7 @@ export default function LoginPage() {
   });
 
   const storedWizard = readForgotPasswordWizard();
+
   const pendingForgotResume =
     !wizardRestored &&
     storedWizard?.mode === "forgot" &&
@@ -196,25 +224,35 @@ export default function LoginPage() {
     if (!profileResolved) {
       return <AuthLoadingScreen />;
     }
+
     return <Navigate to="/register" replace />;
   }
 
   function onSubmit(values) {
     setServerError("");
     setSuccessMessage("");
+
     const isEmail = String(values.identifier || "").includes("@");
+
     let identifier;
+
     if (isEmail) {
       identifier = values.identifier.trim();
     } else {
       const result = validateIranianPhone(values.identifier);
+
       if (!result.valid) {
         setServerError(result.message);
         return;
       }
+
       identifier = result.phone;
     }
-    login.mutate({ identifier, password: values.password });
+
+    login.mutate({
+      identifier,
+      password: values.password,
+    });
   }
 
   function startForgotPassword() {
@@ -224,7 +262,12 @@ export default function LoginPage() {
     setSuccessMessage("");
     setOtpVerified(false);
     setPhone("");
-    writeForgotPasswordWizard({ mode: "forgot", step: 1, phone: "" });
+
+    writeForgotPasswordWizard({
+      mode: "forgot",
+      step: 1,
+      phone: "",
+    });
   }
 
   function returnToLogin() {
@@ -267,6 +310,7 @@ export default function LoginPage() {
               setPhone(normalizedPhone);
               setServerError("");
               setForgotStep(2);
+
               persistForgotWizard(2, normalizedPhone);
             }}
           />
@@ -308,6 +352,7 @@ export default function LoginPage() {
               setOtpVerified(false);
               setPhone("");
               setServerError("");
+
               setSuccessMessage(
                 message ?? "رمز عبور با موفقیت تغییر کرد. اکنون وارد شوید.",
               );
@@ -330,13 +375,10 @@ export default function LoginPage() {
         </p>
       }
     >
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="space-y-4"
-        noValidate
-      >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div>
           <label className={authLabelClassName}>شماره موبایل یا ایمیل</label>
+
           <input
             type="text"
             autoComplete="username"
@@ -345,15 +387,19 @@ export default function LoginPage() {
             placeholder="09123456789"
             {...register("identifier", {
               required: "این فیلد الزامی است.",
+
               validate: (value) => {
                 if (String(value || "").includes("@")) {
                   return true;
                 }
+
                 const result = validateIranianPhone(value);
+
                 return result.valid || result.message;
               },
             })}
           />
+
           {errors.identifier && (
             <p className={`mt-1 ${authErrorClassName}`}>
               {errors.identifier.message}
@@ -363,18 +409,23 @@ export default function LoginPage() {
 
         <div>
           <label className={authLabelClassName}>رمز عبور</label>
+
           <input
             type="password"
             autoComplete="current-password"
             data-testid="login-password"
             className={authInputClassName}
-            {...register("password", { required: "رمز عبور الزامی است." })}
+            {...register("password", {
+              required: "رمز عبور الزامی است.",
+            })}
           />
+
           {errors.password && (
             <p className={`mt-1 ${authErrorClassName}`}>
               {errors.password.message}
             </p>
           )}
+
           <button
             type="button"
             onClick={startForgotPassword}
@@ -387,6 +438,7 @@ export default function LoginPage() {
         {successMessage && (
           <p className={authSuccessClassName}>{successMessage}</p>
         )}
+
         {serverError && <p className={authErrorClassName}>{serverError}</p>}
 
         <Button
@@ -414,47 +466,61 @@ function ForgotPhoneStep({
     handleSubmit,
     formState: { errors },
   } = useForm();
+
   const phoneField = register("phone", {
     required: "شماره موبایل الزامی است.",
+
     validate: (value) => {
       const result = validateIranianPhone(value);
+
       return result.valid || result.message;
     },
   });
+
   const sendResetOtp = useSendPasswordResetOtp({
     onSuccess: (result) => {
       onOtpSent(result.phone);
       onDone(result.phone);
     },
+
     onError: (error) => {
       console.error("[sendPasswordResetOtp]", error?.message);
+
       onError(getAuthMutationErrorMessage(error, "otp-send"));
     },
   });
 
   function onSubmit(values) {
     onError("");
+
     const result = validateIranianPhone(values.phone);
+
     if (!result.valid) {
       onError(result.message);
       return;
     }
+
     const stored = readOtpCooldown(OTP_COOLDOWN_RESET_STORAGE_KEY);
+
     const storedRemaining =
       stored?.phone === result.phone
         ? Math.max(0, OTP_COOLDOWN_MS - (Date.now() - stored.sentAt))
         : 0;
+
     if (stored?.phone === result.phone && storedRemaining > 0) {
       onError(OTP_COOLDOWN_ERROR);
       return;
     }
+
     if (stored?.phone === result.phone && storedRemaining <= 0) {
       clearOtpCooldown(OTP_COOLDOWN_RESET_STORAGE_KEY);
     }
+
     if (getRemainingCooldownSeconds(result.phone) > 0) {
       onError(OTP_COOLDOWN_ERROR);
       return;
     }
+
     sendResetOtp.mutate(result.phone);
   }
 
@@ -462,6 +528,7 @@ function ForgotPhoneStep({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div>
         <label className={authLabelClassName}>شماره موبایل</label>
+
         <input
           type="tel"
           className={authInputClassName}
@@ -472,6 +539,7 @@ function ForgotPhoneStep({
             onError("");
           }}
         />
+
         {errors.phone && (
           <p className={`mt-1 ${authErrorClassName}`}>{errors.phone.message}</p>
         )}
@@ -507,6 +575,7 @@ function ForgotOtpStep({
   const formatCountdown = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
+
     return toPersianDigits(`${minutes}:${String(secs).padStart(2, "0")}`);
   };
 
@@ -515,8 +584,11 @@ function ForgotOtpStep({
     handleSubmit,
     formState: { errors },
   } = useForm();
+
   const [resendMessage, setResendMessage] = useState("");
+
   const [timeLeft, setTimeLeft] = useState(initialCooldownSeconds);
+
   const intervalRef = useRef(null);
 
   const startCountdown = useCallback((seconds = COOLDOWN_SECONDS) => {
@@ -524,15 +596,21 @@ function ForgotOtpStep({
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+
     setTimeLeft(seconds);
+
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(intervalRef.current);
+
           intervalRef.current = null;
+
           clearOtpCooldown(OTP_COOLDOWN_RESET_STORAGE_KEY);
+
           return 0;
         }
+
         return prev - 1;
       });
     }, 1000);
@@ -543,12 +621,16 @@ function ForgotOtpStep({
       phone,
       OTP_COOLDOWN_RESET_STORAGE_KEY,
     );
+
     const seconds =
       storedRemaining > 0 ? storedRemaining : initialCooldownSeconds;
+
     startCountdown(seconds);
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+
         intervalRef.current = null;
       }
     };
@@ -556,8 +638,10 @@ function ForgotOtpStep({
 
   const verifyOtp = useVerifyOtp({
     onSuccess: () => onDone(),
+
     onError: (error) => {
       console.error("[verifyOtp]", error?.message);
+
       onError(getAuthMutationErrorMessage(error, "otp-verify"));
     },
   });
@@ -565,19 +649,27 @@ function ForgotOtpStep({
   const resendOtp = useSendPasswordResetOtp({
     onSuccess: () => {
       setResendMessage("کد تأیید جدید ارسال شد.");
+
       onOtpSent(phone);
       startCountdown(COOLDOWN_SECONDS);
     },
+
     onError: (error) => {
       console.error("[resendPasswordResetOtp]", error?.message);
+
       setResendMessage("");
+
       onError(getAuthMutationErrorMessage(error, "otp-send"));
     },
   });
 
   function onSubmit(values) {
     onError("");
-    verifyOtp.mutate({ phone, code: values.code });
+
+    verifyOtp.mutate({
+      phone,
+      code: values.code,
+    });
   }
 
   function handleResend() {
@@ -591,12 +683,13 @@ function ForgotOtpStep({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <p className={authMutedTextClassName}>
-        کد تأیید به شماره <span className="font-medium text-[#1C1917]">{phone}</span>{" "}
-        ارسال شد.
+        کد تأیید به شماره{" "}
+        <span className="font-medium text-[#1C1917]">{phone}</span> ارسال شد.
       </p>
 
       <div>
         <label className={authLabelClassName}>کد تأیید</label>
+
         <input
           type="text"
           inputMode="numeric"
@@ -604,15 +697,20 @@ function ForgotOtpStep({
           placeholder="- - - -"
           {...register("code", {
             required: "کد تأیید الزامی است.",
-            minLength: { value: 4, message: "کد تأیید باید حداقل ۴ رقم باشد." },
+            minLength: {
+              value: 4,
+              message: "کد تأیید باید حداقل ۴ رقم باشد.",
+            },
           })}
         />
+
         {errors.code && (
           <p className={`mt-1 ${authErrorClassName}`}>{errors.code.message}</p>
         )}
       </div>
 
       {resendMessage && <p className={authSuccessClassName}>{resendMessage}</p>}
+
       {serverError && <p className={authErrorClassName}>{serverError}</p>}
 
       {timeLeft > 0 && (
@@ -639,6 +737,7 @@ function ForgotOtpStep({
         >
           بازگشت
         </Button>
+
         <Button
           type="submit"
           disabled={verifyOtp.isPending}
@@ -658,28 +757,35 @@ function ForgotNewPasswordStep({ onDone, onError, serverError }) {
     watch,
     formState: { errors },
   } = useForm();
+
   const password = watch("password");
 
   const resetPassword = useResetPassword({
     onSuccess: () => onDone(),
+
     onError: (error) => {
       if (isPasswordChangedSignOutFailed(error)) {
         console.error(
           "[resetPasswordAfterOtp] signOut failed:",
           error?.cause?.message ?? error?.message,
         );
+
         onDone(
           "رمز عبور با موفقیت تغییر کرد، اما خروج از این دستگاه انجام نشد. لطفاً صفحه را ببندید یا مرورگر را رفرش کنید.",
         );
+
         return;
       }
+
       console.error("[resetPasswordAfterOtp]", error?.message);
+
       onError(getAuthMutationErrorMessage(error, "password-reset"));
     },
   });
 
   function onSubmit(values) {
     onError("");
+
     resetPassword.mutate(values.password);
   }
 
@@ -689,35 +795,43 @@ function ForgotNewPasswordStep({ onDone, onError, serverError }) {
 
       <div>
         <label className={authLabelClassName}>رمز عبور جدید</label>
+
         <input
           type="password"
           autoComplete="new-password"
           className={authInputClassName}
           {...register("password", {
             required: "رمز عبور الزامی است.",
+
             minLength: {
               value: 6,
               message: "رمز عبور باید حداقل ۶ کاراکتر باشد.",
             },
           })}
         />
+
         {errors.password && (
-          <p className={`mt-1 ${authErrorClassName}`}>{errors.password.message}</p>
+          <p className={`mt-1 ${authErrorClassName}`}>
+            {errors.password.message}
+          </p>
         )}
       </div>
 
       <div>
         <label className={authLabelClassName}>تکرار رمز عبور</label>
+
         <input
           type="password"
           autoComplete="new-password"
           className={authInputClassName}
           {...register("confirmPassword", {
             required: "تکرار رمز عبور الزامی است.",
+
             validate: (value) =>
               value === password || "رمز عبور و تکرار آن یکسان نیستند.",
           })}
         />
+
         {errors.confirmPassword && (
           <p className={`mt-1 ${authErrorClassName}`}>
             {errors.confirmPassword.message}

@@ -1,7 +1,5 @@
 import { UserCheck, BookOpen, BarChart2, Heart } from "lucide-react";
 
-import SectionLabel from "./SectionLabel.jsx";
-
 const features = [
   {
     icon: UserCheck,
@@ -30,10 +28,8 @@ export default function FeaturesSection() {
   return (
     <section
       id="features"
-      className="scroll-mt-nav relative px-3 py-20 sm:px-4 sm:py-28"
+      className="scroll-mt-nav px-3 py-20 sm:px-4 sm:py-28"
     >
-      <SectionLabel label="ویژگی‌ها" />
-
       <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-[#0A1A14] px-4 py-16 sm:px-8 sm:py-20">
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-64"

@@ -1,10 +1,13 @@
-// create-upload-url: admin-only presigned PUT URL for Arvan storage.
+// create-upload-url: presigned PUT URL for Arvan storage.
 //
-// Supports four upload scopes:
+// Admins may upload admin-managed scopes; students may upload only their own
+// work-report PDFs (scope work-report).
+// Supports five upload scopes:
 //   student     -> private bucket, students/{student_id}/{folder}/{uuid}.{ext}
 //   shared      -> private bucket, shared-content/{folder}/{uuid}.{ext}
 //   exam        -> public bucket,  exam-analyses/{exam_date}/{folder}/{uuid}.{ext}
 //   online-exam -> private bucket, online-exams/{exam_id}/pdfs/{uuid}.pdf
+//   work-report -> private bucket, work-reports/{student_id}/reports/{uuid}.pdf
 //
 // Defaults to scope "student" for backward compatibility with existing callers.
 //
@@ -22,6 +25,7 @@ import {
   jsonResponse,
 } from "../_shared/edge.ts";
 import {
+  assertCallerMayUploadScope,
   buildObjectKey,
   getStorageTarget,
   resolveUploadTarget,
@@ -39,10 +43,6 @@ Deno.serve(async (request) => {
   if (!caller) {
     return jsonResponse(request, { error: "Unauthorized" }, 401);
   }
-  if (caller.role !== "admin") {
-    return jsonResponse(request, { error: "Only admins can upload files" }, 403);
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -52,6 +52,7 @@ Deno.serve(async (request) => {
 
   try {
     const target = await resolveUploadTarget(body, supabase);
+    assertCallerMayUploadScope(caller, target);
 
     const storage = getStorageTarget(target.scope);
     const objectKey = buildObjectKey(target);

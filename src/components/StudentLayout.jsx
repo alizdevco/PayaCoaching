@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   BarChart2,
   ClipboardList,
+  FilePlus,
   FileText,
   FolderUp,
   GraduationCap,
@@ -20,7 +21,8 @@ const DARK_MODE_KEY = "admin-dark-mode";
 
 const navItems = [
   { to: "/student/exams", label: "تحلیل آزمون", icon: BarChart2 },
-  { to: "/student/reports", label: "گزارش کار و مشاوره", icon: FileText },
+  { to: "/student/reports", label: "گزارش مشاور و مشاوره", icon: FileText },
+  { to: "/student/work-reports", label: "گزارش کار من", icon: FilePlus },
   { to: "/student/content", label: "محتوای اختصاصی", icon: FolderUp },
   { to: "/student/online-exams", label: "آزمون آنلاین", icon: ClipboardList },
   { to: "/student/profile", label: "پروفایل", icon: User },

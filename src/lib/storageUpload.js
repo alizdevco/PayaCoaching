@@ -165,7 +165,9 @@ function buildScopeBody({ scope, fileType, mimeType, studentId, examDate, examId
     scope,
     file_type: fileType,
     mime_type: mimeType,
-    ...(scope === "student" ? { student_id: studentId } : {}),
+    ...(scope === "student" || scope === "work-report"
+      ? { student_id: studentId }
+      : {}),
     ...(scope === "exam" ? { exam_date: examDate } : {}),
     ...(scope === "online-exam" ? { exam_id: examId } : {}),
   };

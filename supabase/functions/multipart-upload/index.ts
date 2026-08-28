@@ -1,4 +1,7 @@
-// multipart-upload: admin-only S3 multipart upload lifecycle for Arvan storage.
+// multipart-upload: presigned multipart upload lifecycle for Arvan storage.
+//
+// Admins may upload admin-managed scopes; students may upload only their own
+// work-report PDFs (scope work-report).
 //
 // A single PUT of a large file is all-or-nothing: one dropped connection throws
 // away everything already transferred. Multipart splits the file so the browser
@@ -28,6 +31,7 @@ import {
   jsonResponse,
 } from "../_shared/edge.ts";
 import {
+  assertCallerMayUploadScope,
   buildObjectKey,
   getStorageTarget,
   parseObjectKeyForScope,
@@ -168,9 +172,6 @@ Deno.serve(async (request) => {
   if (!caller) {
     return jsonResponse(request, { error: "Unauthorized" }, 401);
   }
-  if (caller.role !== "admin") {
-    return jsonResponse(request, { error: "Only admins can upload files" }, 403);
-  }
 
   let body: Record<string, unknown>;
   try {
@@ -184,6 +185,7 @@ Deno.serve(async (request) => {
 
     if (action === "create") {
       const target = await resolveUploadTarget(body, supabase);
+      assertCallerMayUploadScope(caller, target);
       const storage = getStorageTarget(target.scope);
       const objectKey = buildObjectKey(target);
 

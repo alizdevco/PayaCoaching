@@ -53,11 +53,18 @@ import {
 } from "../features/students/useStudentProfile.js";
 import { useStudentOnlineExamAssignments } from "../features/online-exams/useOnlineExamList.js";
 import { useRemoveOnlineExamAssignment } from "../features/online-exams/useOnlineExamMutations.js";
+import {
+  getWorkReportDisplayTitle,
+  getWorkReportDownloadUrl,
+} from "../features/work-reports/workReportsApi.js";
+import { useDeleteWorkReport } from "../features/work-reports/useDeleteWorkReport.js";
+import { useWorkReports } from "../features/work-reports/useWorkReports.js";
 
 const adminFieldStyles = getProfileFieldStyles("admin");
 
 const TABS = [
   { id: "reports", label: "گزارش کار" },
+  { id: "student-work-reports", label: "گزارش کار دانش‌آموز" },
   { id: "consultations", label: "تایم مشاوره" },
   { id: "content", label: "محتوا" },
   { id: "online-exams", label: "آزمون آنلاین" },
@@ -472,6 +479,140 @@ function ReportsTab({ studentId }) {
         isLoading={deleteContent.isPending}
         title="حذف گزارش"
         message={`آیا از حذف «${deleteTarget?.title ?? ""}» مطمئن هستید؟`}
+      />
+    </div>
+  );
+}
+
+function StudentWorkReportsTab({ studentId }) {
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [downloadError, setDownloadError] = useState("");
+
+  const { data: reports = [], isLoading, isError, refetch } =
+    useWorkReports(studentId);
+  const deleteWorkReport = useDeleteWorkReport();
+
+  const sortedReports = useMemo(
+    () =>
+      [...reports].sort((a, b) => {
+        const dateA = a.report_date ?? a.created_at;
+        const dateB = b.report_date ?? b.created_at;
+        return String(dateB).localeCompare(String(dateA));
+      }),
+    [reports],
+  );
+
+  function handleDeleteConfirm() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    deleteWorkReport.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+      onError: () => setDeleteTarget(null),
+    });
+  }
+
+  async function handleDownload(report) {
+    setDownloadError("");
+    setDownloadingId(report.id);
+    try {
+      const url = await getWorkReportDownloadUrl(report.id);
+      if (!isSafeExternalUrl(url)) {
+        setDownloadError(UNSAFE_LINK_OPEN_MESSAGE);
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setDownloadError(
+        getMutationErrorMessage(error, "دانلود گزارش ناموفق بود."),
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        گزارش‌های PDF که خود دانش‌آموز از پنل «گزارش کار من» آپلود کرده است.
+      </p>
+
+      {isLoading && <LoadingState message="در حال بارگذاری گزارش‌ها..." />}
+
+      {isError && (
+        <ErrorState
+          message="خطا در بارگذاری گزارش‌ها."
+          onRetry={() => refetch()}
+        />
+      )}
+
+      {downloadError && (
+        <p className="text-sm text-red-600 dark:text-red-400">{downloadError}</p>
+      )}
+
+      {!isLoading && !isError && sortedReports.length === 0 && (
+        <EmptyTabState message="این دانش‌آموز هنوز گزارش کاری آپلود نکرده است." />
+      )}
+
+      {!isLoading && !isError && sortedReports.length > 0 && (
+        <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+          {sortedReports.map((report) => {
+            const displayTitle = getWorkReportDisplayTitle(report);
+
+            return (
+              <li
+                key={report.id}
+                className="flex items-start justify-between gap-3 px-4 py-3"
+              >
+                <div className="min-w-0 space-y-1">
+                  <p className="font-medium text-slate-800 dark:text-white">
+                    {displayTitle}
+                  </p>
+                  <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                    <Calendar size={14} aria-hidden="true" />
+                    {formatPersianDate(report.report_date)}
+                  </p>
+                  {report.description?.trim() && (
+                    <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      {report.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    isLoading={downloadingId === report.id}
+                    onClick={() => handleDownload(report)}
+                    aria-label={`دانلود ${displayTitle}`}
+                  >
+                    <Download size={16} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
+                    onClick={() => setDeleteTarget(report)}
+                    aria-label={`حذف ${displayTitle}`}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <ConfirmDeleteModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        isLoading={deleteWorkReport.isPending}
+        title="حذف گزارش کار دانش‌آموز"
+        message={`آیا از حذف «${deleteTarget ? getWorkReportDisplayTitle(deleteTarget) : ""}» مطمئن هستید؟`}
       />
     </div>
   );
@@ -1343,6 +1484,9 @@ export default function StudentDetailsPage() {
         </div>
 
         {activeTab === "reports" && <ReportsTab studentId={studentId} />}
+        {activeTab === "student-work-reports" && (
+          <StudentWorkReportsTab studentId={studentId} />
+        )}
         {activeTab === "consultations" && (
           <ConsultationsTab
             studentId={studentId}

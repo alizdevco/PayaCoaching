@@ -6,11 +6,22 @@
 
 import { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { S3Client } from "npm:@aws-sdk/client-s3@3.726.0";
-import { getArvanConfig, getArvanPublicConfig, isUuid } from "./edge.ts";
+import { Caller, getArvanConfig, getArvanPublicConfig, isUuid } from "./edge.ts";
 
-export type UploadScope = "student" | "shared" | "exam" | "online-exam";
+export type UploadScope =
+  | "student"
+  | "shared"
+  | "exam"
+  | "online-exam"
+  | "work-report";
 
-const SCOPES = new Set<UploadScope>(["student", "shared", "exam", "online-exam"]);
+const SCOPES = new Set<UploadScope>([
+  "student",
+  "shared",
+  "exam",
+  "online-exam",
+  "work-report",
+]);
 
 const FILE_TYPE_CONFIG = {
   video: { folder: "videos", ext: "mp4", mimes: ["video/mp4"] },
@@ -30,6 +41,7 @@ const FILE_TYPES_BY_SCOPE: Record<UploadScope, readonly FileType[]> = {
   shared: ["video", "pdf", "image", "report"],
   exam: ["video", "pdf"],
   "online-exam": ["pdf"],
+  "work-report": ["pdf"],
 };
 
 const MAX_BYTES_BY_FILE_TYPE: Record<FileType, number> = {
@@ -80,7 +92,7 @@ function parseScope(value: unknown): UploadScope {
     return value as UploadScope;
   }
   throw new UploadRequestError(
-    "scope must be one of: student, shared, exam, online-exam",
+    "scope must be one of: student, shared, exam, online-exam, work-report",
     400,
   );
 }
@@ -96,6 +108,51 @@ function isValidExamDate(value: unknown): value is string {
     date.getUTCDate() === day;
 }
 
+async function assertStudentProfile(
+  supabase: SupabaseClient,
+  studentId: string,
+): Promise<void> {
+  const { data: student } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", studentId)
+    .single();
+
+  if (!student || student.role !== "student") {
+    throw new UploadRequestError("student_id does not match a student", 404);
+  }
+}
+
+/**
+ * Ensures the authenticated caller may start an upload for the resolved target.
+ * Admin-only scopes stay admin-only; students may upload only their own work reports.
+ */
+export function assertCallerMayUploadScope(
+  caller: Caller,
+  target: UploadTarget,
+): void {
+  if (caller.role === "admin") {
+    if (target.scope === "work-report") {
+      throw new UploadRequestError(
+        "Work reports can only be uploaded by students",
+        403,
+      );
+    }
+    return;
+  }
+
+  if (target.scope !== "work-report") {
+    throw new UploadRequestError("Only admins can upload files", 403);
+  }
+
+  if (!target.studentId || target.studentId !== caller.id) {
+    throw new UploadRequestError(
+      "You can only upload work reports for yourself",
+      403,
+    );
+  }
+}
+
 /**
  * Validates an upload request and resolves everything needed to build the
  * object key. Throws UploadRequestError with the status to reply with.
@@ -105,7 +162,8 @@ export async function resolveUploadTarget(
   supabase: SupabaseClient,
 ): Promise<UploadTarget> {
   const scope = parseScope(body.scope);
-  const { student_id, exam_date, exam_id, file_type, mime_type, file_size } = body;
+  const { student_id, exam_date, exam_id, file_type, mime_type, file_size } =
+    body;
 
   const allowedTypes = FILE_TYPES_BY_SCOPE[scope];
   if (
@@ -147,19 +205,12 @@ export async function resolveUploadTarget(
     );
   }
 
-  if (scope === "student") {
+  if (scope === "student" || scope === "work-report") {
     if (!isUuid(student_id)) {
       throw new UploadRequestError("student_id must be a valid UUID", 400);
     }
 
-    const { data: student } = await supabase
-      .from("profiles")
-      .select("id, role")
-      .eq("id", student_id)
-      .single();
-    if (!student || student.role !== "student") {
-      throw new UploadRequestError("student_id does not match a student", 404);
-    }
+    await assertStudentProfile(supabase, student_id as string);
   } else if (scope === "exam" && !isValidExamDate(exam_date)) {
     throw new UploadRequestError(
       "exam_date must be a valid YYYY-MM-DD date",
@@ -190,7 +241,9 @@ export async function resolveUploadTarget(
     fileSize: file_size,
     folder: typeConfig.folder,
     ext: typeConfig.ext,
-    studentId: scope === "student" ? student_id as string : undefined,
+    studentId: scope === "student" || scope === "work-report"
+      ? student_id as string
+      : undefined,
     examDate: scope === "exam" ? exam_date as string : undefined,
     examId: scope === "online-exam" ? exam_id as string : undefined,
   };
@@ -210,10 +263,13 @@ export function buildObjectKey(target: UploadTarget): string {
       return `exam-analyses/${target.examDate}/${target.folder}/${fileName}`;
     case "online-exam":
       return `online-exams/${target.examId}/${target.folder}/${fileName}`;
+    case "work-report":
+      return `work-reports/${target.studentId}/reports/${fileName}`;
   }
 }
 
-const UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const UUID_PATTERN =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const FOLDER_PATTERN = "(?:videos|pdfs|images|reports)";
 const FILE_NAME_PATTERN = `${UUID_PATTERN}\\.(?:mp4|pdf|jpg)`;
 
@@ -234,7 +290,22 @@ const OBJECT_KEY_PATTERNS: Record<UploadScope, RegExp> = {
     `^online-exams/${UUID_PATTERN}/pdfs/${UUID_PATTERN}\\.pdf$`,
     "i",
   ),
+  "work-report": new RegExp(
+    `^work-reports/(${UUID_PATTERN})/reports/${UUID_PATTERN}\\.pdf$`,
+    "i",
+  ),
 };
+
+/** Returns the student_id embedded in a work-report object key, if valid. */
+export function parseWorkReportStudentIdFromObjectKey(
+  objectKey: string,
+): string | null {
+  const match = OBJECT_KEY_PATTERNS["work-report"].exec(objectKey);
+  if (!match?.[1]) {
+    return null;
+  }
+  return match[1].toLowerCase();
+}
 
 /**
  * Later multipart calls send back an object key the client received earlier.
