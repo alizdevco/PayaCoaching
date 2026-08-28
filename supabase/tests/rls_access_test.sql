@@ -47,6 +47,20 @@ values
   ('2026-02-01', 'Draft', 'body', false,
    '11111111-1111-1111-1111-111111111111', null);
 
+-- Seed work reports: A active, A soft-deleted, B active.
+insert into public.work_reports
+  (student_id, report_date, file_path, original_filename, file_size, mime_type, deleted_at)
+values
+  ('22222222-2222-2222-2222-222222222222', '2026-01-01',
+   'work-reports/22222222-2222-2222-2222-222222222222/reports/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.pdf',
+   'report-a.pdf', 1000, 'application/pdf', null),
+  ('22222222-2222-2222-2222-222222222222', '2026-01-02',
+   'work-reports/22222222-2222-2222-2222-222222222222/reports/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.pdf',
+   'report-a-deleted.pdf', 1000, 'application/pdf', now()),
+  ('33333333-3333-3333-3333-333333333333', '2026-01-03',
+   'work-reports/33333333-3333-3333-3333-333333333333/reports/cccccccc-cccc-cccc-cccc-cccccccccccc.pdf',
+   'report-b.pdf', 1000, 'application/pdf', null);
+
 -- ---------------------------------------------------------------------------
 -- Assertions (rolled back at the end)
 -- ---------------------------------------------------------------------------
@@ -181,11 +195,102 @@ begin
   end;
   raise notice '[%] exams: studentA insert blocked -> %', case when ok then 'PASS' else 'FAIL' end, ok;
   perform set_config('role', 'postgres', true);
+
+  -- work_reports: student A sees only own active row
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', a_id, 'role', 'authenticated')::text, true);
+  select count(*) into c from public.work_reports;
+  raise notice '[%] work_reports: studentA sees own active only (want 1) -> %', case when c = 1 then 'PASS' else 'FAIL' end, c;
+  perform set_config('role', 'postgres', true);
+
+  -- work_reports: student B sees only own active row
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', b_id, 'role', 'authenticated')::text, true);
+  select count(*) into c from public.work_reports;
+  raise notice '[%] work_reports: studentB sees own active only (want 1) -> %', case when c = 1 then 'PASS' else 'FAIL' end, c;
+  perform set_config('role', 'postgres', true);
+
+  -- work_reports: admin sees active rows only
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
+  select count(*) into c from public.work_reports;
+  raise notice '[%] work_reports: admin sees active only (want 2) -> %', case when c = 2 then 'PASS' else 'FAIL' end, c;
+  perform set_config('role', 'postgres', true);
+
+  -- work_reports: student A can insert own row with valid path
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', a_id, 'role', 'authenticated')::text, true);
+  ok := true;
+  begin
+    insert into public.work_reports
+      (student_id, report_date, file_path, original_filename, file_size, mime_type)
+    values (
+      a_id::uuid,
+      '2026-02-01',
+      'work-reports/22222222-2222-2222-2222-222222222222/reports/dddddddd-dddd-dddd-dddd-dddddddddddd.pdf',
+      'new-report.pdf',
+      1000,
+      'application/pdf'
+    );
+  exception when others then
+    ok := false;
+  end;
+  raise notice '[%] work_reports: studentA insert own allowed -> %', case when ok then 'PASS' else 'FAIL' end, ok;
+  perform set_config('role', 'postgres', true);
+
+  -- work_reports: student A cannot insert for student B
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', a_id, 'role', 'authenticated')::text, true);
+  ok := true;
+  begin
+    insert into public.work_reports
+      (student_id, report_date, file_path, original_filename, file_size, mime_type)
+    values (
+      b_id::uuid,
+      '2026-02-02',
+      'work-reports/33333333-3333-3333-3333-333333333333/reports/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.pdf',
+      'hack.pdf',
+      1000,
+      'application/pdf'
+    );
+    ok := false;
+  exception when others then
+    ok := true;
+  end;
+  raise notice '[%] work_reports: studentA insert for B blocked -> %', case when ok then 'PASS' else 'FAIL' end, ok;
+  perform set_config('role', 'postgres', true);
+
+  -- work_reports: student A cannot use another student path prefix
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', a_id, 'role', 'authenticated')::text, true);
+  ok := true;
+  begin
+    insert into public.work_reports
+      (student_id, report_date, file_path, original_filename, file_size, mime_type)
+    values (
+      a_id::uuid,
+      '2026-02-03',
+      'work-reports/33333333-3333-3333-3333-333333333333/reports/ffffffff-ffff-ffff-ffff-ffffffffffff.pdf',
+      'bad-path.pdf',
+      1000,
+      'application/pdf'
+    );
+    ok := false;
+  exception when others then
+    ok := true;
+  end;
+  raise notice '[%] work_reports: studentA mismatched file_path blocked -> %', case when ok then 'PASS' else 'FAIL' end, ok;
+  perform set_config('role', 'postgres', true);
 end $$;
 
 rollback;
 
 -- Cleanup: remove content first (uploaded_by is ON DELETE RESTRICT), then users.
+delete from public.work_reports
+  where student_id in (
+    '22222222-2222-2222-2222-222222222222',
+    '33333333-3333-3333-3333-333333333333'
+  );
 delete from public.student_contents
   where uploaded_by = '11111111-1111-1111-1111-111111111111';
 delete from public.exam_analyses

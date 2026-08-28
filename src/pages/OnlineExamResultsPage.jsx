@@ -47,15 +47,15 @@ function StatusBadge({ status }) {
     </span>
   );
 }
-
 function formatScore(value) {
   if (value == null || Number.isNaN(Number(value))) {
     return "—";
-  }
+  }                                                                                                                                                                                                                                                                                                                                                                                     
   return Number(value).toLocaleString("fa-IR", {
     maximumFractionDigits: 2,
   });
 }
+
 
 function formatPercentage(value) {
   if (value == null || Number.isNaN(Number(value))) {

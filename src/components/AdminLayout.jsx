@@ -87,6 +87,14 @@ export default function AdminLayout() {
   }, [isDark]);
 
   useEffect(() => {
+    document.body.classList.add("admin-panel");
+
+    return () => {
+      document.body.classList.remove("admin-panel");
+    };
+  }, []);
+
+  useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
@@ -240,7 +248,7 @@ export default function AdminLayout() {
         {sidebarContent}
       </aside>
 
-      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col bg-[#f8fafc] dark:bg-[#0a0f1e]">
         <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 transition-colors duration-200 sm:px-6 dark:border-slate-700 dark:bg-[#0f172a]">
           <div className="flex items-center gap-3">
             <button
@@ -271,7 +279,7 @@ export default function AdminLayout() {
           </button>
         </header>
 
-        <div className="admin-page-enter flex-1 p-4 sm:p-6">
+        <div className="admin-page-enter flex-1 bg-[#f8fafc] p-4 sm:p-6 dark:bg-[#0a0f1e]">
           <Outlet />
         </div>
       </main>

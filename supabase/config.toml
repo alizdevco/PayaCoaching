@@ -447,6 +447,18 @@ verify_jwt = true
 enabled = true
 verify_jwt = true
 
+[functions.finalize-work-report]
+enabled = true
+verify_jwt = true
+
+[functions.abort-work-report-upload]
+enabled = true
+verify_jwt = true
+
+[functions.delete-work-report]
+enabled = true
+verify_jwt = true
+
 [functions.delete-exam-file]
 enabled = true
 verify_jwt = true

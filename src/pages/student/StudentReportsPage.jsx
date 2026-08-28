@@ -1,5 +1,6 @@
+import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { Calendar, Clock, Download, User } from "lucide-react";
+import { Calendar, Clock, Download, FilePlus, User } from "lucide-react";
 
 import Button from "../../components/Button.jsx";
 import Card from "../../components/Card.jsx";
@@ -85,10 +86,10 @@ export default function StudentReportsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-          گزارش کار و مشاوره
+          گزارش مشاور و مشاوره
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          گزارش‌های کار و تاریخچه مشاوره‌های تلفنی شما.
+          گزارش‌های ثبت‌شده توسط مشاور و تاریخچه مشاوره‌های تلفنی شما.
         </p>
       </div>
 
@@ -101,9 +102,23 @@ export default function StudentReportsPage() {
       {!isLoading && !isError && (
         <>
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
-              گزارش‌های کار
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+                گزارش‌های ثبت‌شده توسط مشاور
+              </h2>
+              <Link
+                to="/student/work-reports"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                data-testid="go-to-my-work-reports"
+              >
+                <FilePlus size={14} aria-hidden="true" />
+                گزارش کار من
+              </Link>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              این گزارش‌ها توسط مشاور برای شما آپلود شده‌اند. برای ثبت گزارش
+              کار خودتان به بخش «گزارش کار من» بروید.
+            </p>
 
             {downloadError && (
               <p className="text-sm text-red-600 dark:text-red-400">

@@ -59,7 +59,7 @@ Deno.serve(async (request) => {
   const caller = await getCaller(request, supabase);
   if (!caller) return jsonResponse(request, { error: "Unauthorized" }, 401);
 
-  let body: { content_id?: unknown; online_exam_id?: unknown };
+  let body: { content_id?: unknown; online_exam_id?: unknown; work_report_id?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -67,14 +67,32 @@ Deno.serve(async (request) => {
   }
 
   if (isUuid(body.online_exam_id)) {
+    const examId = body.online_exam_id;
+
     const { data: exam } = await supabase
       .from("online_exams")
       .select("id, pdf_file_path, start_at")
-      .eq("id", body.online_exam_id)
-      .single();
+      .eq("id", examId)
+      .maybeSingle();
 
     if (!exam) {
       return jsonResponse(request, { error: "Online exam not found" }, 404);
+    }
+
+    if (caller.role !== "admin") {
+      const { data: assignment } = await supabase
+        .from("online_exam_assignments")
+        .select("id")
+        .eq("exam_id", examId)
+        .eq("student_id", caller.id)
+        .maybeSingle();
+
+      if (!assignment) {
+        return jsonResponse(request, 
+          { error: "You do not have access to this exam" },
+          403,
+        );
+      }
     }
 
     if (new Date(exam.start_at) > new Date()) {
@@ -91,9 +109,35 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { download_url: downloadUrl, is_link: false }, 200);
   }
 
+  if (isUuid(body.work_report_id)) {
+    const reportId = body.work_report_id;
+
+    const { data: report } = await supabase
+      .from("work_reports")
+      .select("id, student_id, file_path, deleted_at")
+      .eq("id", reportId)
+      .single();
+
+    if (!report || report.deleted_at !== null) {
+      return jsonResponse(request, { error: "Work report not found" }, 404);
+    }
+
+    if (caller.role !== "admin" && caller.id !== report.student_id) {
+      return jsonResponse(request, 
+        { error: "You do not have access to this file" },
+        403,
+      );
+    }
+
+    const downloadUrl = await presignPrivateObject(request, report.file_path);
+    if (downloadUrl instanceof Response) return downloadUrl;
+
+    return jsonResponse(request, { download_url: downloadUrl, is_link: false }, 200);
+  }
+
   if (!isUuid(body.content_id)) {
     return jsonResponse(request, 
-      { error: "content_id or online_exam_id must be a valid UUID" },
+      { error: "content_id, work_report_id, or online_exam_id must be a valid UUID" },
       400,
     );
   }

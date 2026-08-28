@@ -20,9 +20,13 @@ const INTERNAL_PLATFORM_ERROR_PATTERNS = [
 
 function isInternalPlatformError(error) {
   const message = String(error?.message ?? "").toLowerCase();
+
   const name = String(error?.name ?? "").toLowerCase();
+
   return (
-    INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) => message.includes(pattern)) ||
+    INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) =>
+      message.includes(pattern),
+    ) ||
     INTERNAL_PLATFORM_ERROR_PATTERNS.some((pattern) => name.includes(pattern))
   );
 }
@@ -41,11 +45,13 @@ export function isNetworkError(error) {
   }
 
   const message = String(error.message ?? "").toLowerCase();
+
   return NETWORK_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
 }
 
 function isAuthSessionError(error) {
   const message = String(error?.message ?? "").toLowerCase();
+
   const code = String(error?.code ?? "").toLowerCase();
 
   return (
@@ -59,25 +65,28 @@ function isAuthSessionError(error) {
   );
 }
 
-/** PostgREST .single() when zero (or multiple) rows are returned — profile missing or RLS hides it. */
+/**
+ * PostgREST .single() when zero (or multiple) rows are returned —
+ * profile missing or RLS hides it.
+ */
 export function isProfileNotFoundError(error) {
   return String(error?.code ?? "").toUpperCase() === "PGRST116";
 }
 
-/** Errors where clearing profile is correct; everything else is treated as transient. */
+/**
+ * Errors where clearing profile is correct;
+ * everything else is treated as transient.
+ */
 export function isDefinitiveProfileLoadFailure(error) {
   if (isProfileNotFoundError(error) || isAuthSessionError(error)) {
     return true;
   }
 
   const status = Number(error?.status);
+
   return status === 403;
 }
 
-/**
- * @param {unknown} error
- * @param {"login" | "otp-send" | "otp-verify" | "profile" | "register" | "password-reset"} context
- */
 export function getAuthMutationErrorMessage(error, context) {
   if (isInternalPlatformError(error)) {
     return "اتصال برقرار نشد یا پاسخ سرور دریافت نشد. لطفاً اتصال اینترنت خود را بررسی کرده و دوباره تلاش کنید.";
@@ -94,26 +103,30 @@ export function getAuthMutationErrorMessage(error, context) {
   switch (context) {
     case "login":
       return "شماره/ایمیل یا رمز عبور نادرست است.";
+
     case "otp-send":
-      if (
-        error?.message &&
-        !error?.status &&
-        !isInternalPlatformError(error)
-      ) {
+      if (error?.message && !error?.status && !isInternalPlatformError(error)) {
         const code = String(error?.code ?? "");
+
         if (!code || code.startsWith("PGRST")) {
           return error.message;
         }
       }
+
       return "ارسال کد تأیید ناموفق بود. لطفاً دوباره تلاش کنید.";
+
     case "otp-verify":
       return "کد تأیید نادرست است یا منقضی شده. لطفاً دوباره تلاش کنید.";
+
     case "profile":
       return "ذخیره پروفایل ناموفق بود. لطفاً دوباره تلاش کنید.";
+
     case "register":
       return "ثبت‌نام ناموفق بود. لطفاً دوباره تلاش کنید.";
+
     case "password-reset":
       return "تغییر رمز عبور ناموفق بود. لطفاً دوباره تلاش کنید.";
+
     default:
       return "عملیات ناموفق بود. لطفاً دوباره تلاش کنید.";
   }

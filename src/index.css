@@ -32,6 +32,14 @@ body {
   font-family: "Vazirmatn", system-ui, sans-serif;
 }
 
+body.admin-panel {
+  background-color: #f8fafc;
+}
+
+.dark body.admin-panel {
+  background-color: #0a0f1e;
+}
+
 /* Admin panel animations and card effects */
 .admin-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);

@@ -36,6 +36,9 @@ const StudentSharedContentPage = lazy(() =>
 const StudentReportsPage = lazy(() =>
   import("./pages/student/StudentReportsPage.jsx"),
 );
+const StudentWorkReportsPage = lazy(() =>
+  import("./pages/student/StudentWorkReportsPage.jsx"),
+);
 const StudentProfilePage = lazy(() =>
   import("./pages/student/StudentProfilePage.jsx"),
 );
@@ -89,6 +92,7 @@ function App() {
           <Route path="exams/:exam_date" element={<StudentExamDetailPage />} />
           <Route path="content" element={<StudentSharedContentPage />} />
           <Route path="reports" element={<StudentReportsPage />} />
+          <Route path="work-reports" element={<StudentWorkReportsPage />} />
           <Route path="profile" element={<StudentProfilePage />} />
           <Route path="online-exams" element={<StudentOnlineExamsPage />} />
           <Route path="online-exams/:examId" element={<StudentTakeExamPage />} />

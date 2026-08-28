@@ -3,6 +3,8 @@ import { OTP_RATE_LIMIT_MESSAGE } from "./phoneValidation.ts";
 
 export type OtpPurpose = "registration" | "password_reset";
 
+const GLOBAL_SMS_LIMIT = 200;
+const GLOBAL_SMS_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const PHONE_LIMIT = 5;
 const PHONE_WINDOW_MS = 15 * 60 * 1000;
 const IP_LIMIT = 30;
@@ -22,6 +24,22 @@ export async function assertOtpRateLimit(
   phoneDigits: string,
   clientIp: string | null,
 ): Promise<void> {
+  const { data: globalAllowed, error: globalError } = await supabase.rpc(
+    "check_global_sms_quota",
+    {
+      p_limit: GLOBAL_SMS_LIMIT,
+      p_window_seconds: GLOBAL_SMS_WINDOW_MS / 1000,
+    },
+  );
+
+  if (globalError) {
+    console.error("global sms quota check failed:", globalError.message);
+    throw new Error("Could not process the request");
+  }
+  if (!globalAllowed) {
+    throw new OtpRateLimitError();
+  }
+
   const { data: allowed, error } = await supabase.rpc("check_and_record_otp_attempt", {
     p_purpose: purpose,
     p_phone_digits: phoneDigits,
