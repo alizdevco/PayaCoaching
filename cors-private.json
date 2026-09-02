@@ -13,7 +13,6 @@
         "AllowedOrigins": [
           "http://127.0.0.1:5173",
           "http://localhost:5173",
-          "https://edu-consult-web.s3.ir-thr-at1.arvanstorage.ir",
           "https://payacoaching.ir",
           "https://www.payacoaching.ir"
         ],
