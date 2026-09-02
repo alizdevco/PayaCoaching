@@ -37,5 +37,21 @@ supabase/.temp/
 .tmp-lh-before/
 test-results/
 playwright-report/
-"edu.zip" 
 lighthouse-*.json
+# Environment variables and secrets
+.env*
+!.env.example
+!.env.test.example
+secrets.env
+
+# Archives
+edu.zip
+*.zip
+
+# Authentication and test artifacts
+e2e/.auth/*.json
+playwright-report/
+test-results/
+
+# Supabase local state
+supabase/.temp/
